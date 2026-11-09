@@ -1,19 +1,7 @@
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-build/
-dist/
-*.egg-info/
-.installed.cfg
-*.egg
-.cache/
-*.tmp
-.pytest_cache/
+/build/
+/vendor/
+/pkg/
+*.pkg.tar.*
 
-# Ignore macOS upstream clone folder
-src-cra/
+__pycache__/
+*.egg-info/
