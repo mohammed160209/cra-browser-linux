@@ -12,6 +12,7 @@
 #include "session.h"
 #include "include/cef_app.h"
 #include "include/cef_display_handler.h"
+#include "include/cef_download_handler.h"
 #include "include/cef_focus_handler.h"
 #include "include/cef_request_context.h"
 #include "include/cef_life_span_handler.h"
@@ -81,13 +82,30 @@ void AddButton(CefRefPtr<CefPanel> parent, const std::string& text,
 
 class PopupWindow : public CefWindowDelegate {
  public:
-  PopupWindow(CefRefPtr<CefBrowserView> view, std::string title)
-      : view_(view), title_(std::move(title)) {}
+  PopupWindow(CefRefPtr<CefBrowserView> view, std::string title, bool address_bar = false)
+      : view_(view), title_(std::move(title)), address_bar_(address_bar) {}
   void OnWindowCreated(CefRefPtr<CefWindow> window) override {
     window->SetTitle(title_);
-    window->AddChildView(view_);
+    auto panel = CefPanel::CreatePanel(nullptr);
+    auto layout = Box(panel, true, 4);
+    window->AddChildView(panel);
+    CefRefPtr<CefTextfield> field;
+    if (address_bar_) {
+      field = CefTextfield::CreateTextfield(new Entry([view = view_](std::string input) {
+        if (auto page = view->GetBrowser()) {
+          page->GetMainFrame()->LoadURL(Resolve(std::move(input)));
+          view->RequestFocus();
+        }
+      }));
+      field->SetPlaceholderText("Search or enter an address");
+      field->SetAccessibleName("Address");
+      panel->AddChildView(field);
+    }
+    panel->AddChildView(view_);
+    layout->SetFlexForView(view_, 1);
     window->Show();
-    view_->RequestFocus();
+    if (field) field->RequestFocus();
+    else view_->RequestFocus();
   }
   CefSize GetPreferredSize(CefRefPtr<CefView>) override { return {880, 640}; }
   bool CanClose(CefRefPtr<CefWindow>) override {
@@ -98,11 +116,16 @@ class PopupWindow : public CefWindowDelegate {
  private:
   CefRefPtr<CefBrowserView> view_;
   const std::string title_;
+  const bool address_bar_;
   IMPLEMENT_REFCOUNTING(PopupWindow);
 };
 
 class ViewDelegate : public CefBrowserViewDelegate {
  public:
+  // CEF permits multiple Alloy views in one window. Chrome-style views are
+  // limited to one per window, which cannot represent Cra's tabs and splits.
+  cef_runtime_style_t GetBrowserRuntimeStyle() override { return CEF_RUNTIME_STYLE_ALLOY; }
+
   bool OnPopupBrowserViewCreated(CefRefPtr<CefBrowserView>,
                                  CefRefPtr<CefBrowserView> popup, bool) override {
     CefWindow::CreateTopLevelWindow(new PopupWindow(popup, "Cra Browser"));
@@ -129,6 +152,7 @@ class MainWindow : public CefWindowDelegate {
 class Shell : public CefClient,
               public CefLifeSpanHandler,
               public CefDisplayHandler,
+              public CefDownloadHandler,
               public CefFocusHandler,
               public CefLoadHandler {
  public:
@@ -144,6 +168,14 @@ class Shell : public CefClient,
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
   CefRefPtr<CefDisplayHandler> GetDisplayHandler() override { return this; }
   CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
+  CefRefPtr<CefDownloadHandler> GetDownloadHandler() override { return this; }
+
+  bool OnBeforeDownload(CefRefPtr<CefBrowser>, CefRefPtr<CefDownloadItem>,
+                        const CefString& suggested_name,
+                        CefRefPtr<CefBeforeDownloadCallback> callback) override {
+    callback->Continue(std::filesystem::path(suggested_name.ToString()).filename().string(), true);
+    return true;
+  }
   CefRefPtr<CefFocusHandler> GetFocusHandler() override { return this; }
 
   void Relaunch(const std::vector<std::string>& urls) {
@@ -455,12 +487,12 @@ class Shell : public CefClient,
       if (auto page = SelectedBrowser()) page->GetMainFrame()->LoadURL(tab->home);
     } else if (input == "/little") {
       CefWindow::CreateTopLevelWindow(new PopupWindow(
-          MakeView(tab ? tab->url : "about:blank", Context()), "Little Cra"));
+          MakeView(tab ? tab->url : "about:blank", Context()), "Little Cra", true));
       return;
     } else if (input == "/private") {
       auto context = CefRequestContext::CreateContext(CefRequestContextSettings{}, nullptr);
       CefWindow::CreateTopLevelWindow(new PopupWindow(
-          MakeView("about:blank", context), "Cra Private Window"));
+          MakeView("about:blank", context), "Cra Private Window", true));
       return;
     } else if (input.starts_with("/split ") && input.size() > 7) {
       const auto url = Resolve(input.substr(7));

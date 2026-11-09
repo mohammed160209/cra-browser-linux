@@ -1,6 +1,6 @@
 # Cra Browser for Linux
 
-This preview uses C++ and Chromium Embedded Framework with CEF Views. It follows the workflow of [Cra on macOS](https://github.com/VictorKildahl/cra) and pins the same CEF version. It uses the stock Linux CEF binary. The macOS application ships a custom Chromium build, so the two engines do not have identical capabilities.
+This preview uses C++ and Chromium Embedded Framework with CEF Views. It follows the workflow of [Cra on macOS](https://github.com/VictorKildahl/cra) and pins the same CEF version. It uses the stock Linux CEF binary and Alloy-style views to support multiple browsing panes in one window. The macOS application ships a custom Chromium build, so the two engines do not have identical capabilities.
 
 ## Install on CachyOS or Arch Linux
 
@@ -20,7 +20,7 @@ DESTDIR="$PWD/stage" cmake --install build
 
 ## Preview workflows
 
-- Ctrl+T creates a tab. Ctrl+L edits the current address. Ctrl+W archives the active tab.
+- Ctrl+T creates a tab. Ctrl+L edits the current address. Ctrl+W archives the active tab or closes the focused secondary pane.
 - Ctrl+D pins or unpins the active tab. `/home` navigates to the pinned address.
 - `/space Work` opens or creates a Space. `/folder Projects` labels and pins the active tab. `/favorite` marks it as a favorite.
 - Ctrl+E toggles the second pane. `/split example.org` navigates it. `/little` opens the current URL in a small window.
