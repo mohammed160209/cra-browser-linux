@@ -118,6 +118,29 @@ void Session::Remove(int id, bool archive) {
   if (was_selected) Switch(space);
 }
 
+bool Session::Restore(int id) {
+  const auto found = std::find_if(archived.begin(), archived.end(),
+                                  [id](const Tab& tab) { return tab.id == id; });
+  if (found == archived.end()) return false;
+  Tab tab = std::move(*found);
+  archived.erase(found);
+  Switch(tab.space);
+  tab.visited = Now();
+  tabs.push_back(std::move(tab));
+  selected = id;
+  return true;
+}
+
+std::vector<int> Session::ClearToday() {
+  std::vector<int> cleared;
+  for (const auto& tab : tabs) {
+    if (tab.space == space && tab.home.empty() && !tab.favorite)
+      cleared.push_back(tab.id);
+  }
+  for (const int id : cleared) Remove(id, true);
+  return cleared;
+}
+
 void Session::Switch(std::string name) {
   if (name.empty()) name = spaces.front();
   if (std::find(spaces.begin(), spaces.end(), name) == spaces.end())

@@ -134,6 +134,11 @@ class ViewDelegate : public CefBrowserViewDelegate {
   IMPLEMENT_REFCOUNTING(ViewDelegate);
 };
 
+enum ArchiveAccelerator {
+  kRestoreClosed = 1000,
+  kClearToday,
+};
+
 class Shell;
 
 class MainWindow : public CefWindowDelegate {
@@ -250,6 +255,8 @@ class Shell : public CefClient,
 
     for (const int key : {'T', 'L', 'W', 'D', 'E', 'S'})
       window_->SetAccelerator(key, key, false, true, false, true);
+    window_->SetAccelerator(kRestoreClosed, 'T', true, true, false, true);
+    window_->SetAccelerator(kClearToday, 'K', true, true, false, true);
 
     ShowSelected();
     window_->Show();
@@ -264,6 +271,10 @@ class Shell : public CefClient,
       case 'D': PinSelected(); return true;
       case 'S': sidebar_->SetVisible(!sidebar_->IsVisible()); window_->Layout(); return true;
       case 'E': ToggleSplit(); return true;
+      case kRestoreClosed:
+        if (!session_.archived.empty()) RestoreArchived(session_.archived.back().id);
+        return true;
+      case kClearToday: ClearToday(); return true;
       default: return false;
     }
   }
@@ -430,6 +441,7 @@ class Shell : public CefClient,
     sidebar_->AddChildView(controls);
     AddButton(controls, "+ New tab", [this] { Accelerate('T'); });
     AddButton(controls, "Pin / unpin", [this] { PinSelected(); });
+    AddButton(controls, "Clear Today", [this] { ClearToday(); });
     AddButton(controls, archive_visible_ ? "Show tabs" : "Show archive", [this] {
       archive_visible_ = !archive_visible_;
       RefreshSidebar();
@@ -455,17 +467,10 @@ class Shell : public CefClient,
       AddButton(list, std::string(tab.id == session_.selected ? "› " : "") +
                       prefix + folder + name, [this, id = tab.id] {
         if (archive_visible_) {
-          const auto found = std::find_if(session_.archived.begin(), session_.archived.end(),
-                                         [id](const Tab& tab) { return tab.id == id; });
-          if (found == session_.archived.end()) return;
-          auto tab = *found;
-          session_.archived.erase(found);
-          auto& restored = session_.Add(tab.url);
-          restored.title = tab.title;
-          archive_visible_ = false;
-        } else {
-          session_.selected = id;
+          RestoreArchived(id);
+          return;
         }
+        session_.selected = id;
         ShowSelected();
       });
       ++count;
@@ -527,13 +532,32 @@ class Shell : public CefClient,
       return;
     }
     const int id = session_.selected;
-    auto page = SelectedBrowser();
     session_.Remove(id, true);
-    if (const auto found = views_.find(id); found != views_.end()) {
-      left_->RemoveChildView(found->second);
-      views_.erase(found);
-    }
+    DiscardTabView(id);
+    ShowSelected();
+  }
+
+  void DiscardTabView(int id) {
+    const auto found = views_.find(id);
+    if (found == views_.end()) return;
+    auto page = found->second->GetBrowser();
+    left_->RemoveChildView(found->second);
+    views_.erase(found);
     if (page) page->GetHost()->CloseBrowser(true);
+  }
+
+  void RestoreArchived(int id) {
+    const auto previous_space = session_.space;
+    if (!session_.Restore(id)) return;
+    if (session_.space != previous_space) ResetSecondary();
+    archive_visible_ = false;
+    ShowSelected();
+  }
+
+  void ClearToday() {
+    const auto cleared = session_.ClearToday();
+    if (cleared.empty()) return;
+    for (const int id : cleared) DiscardTabView(id);
     ShowSelected();
   }
 

@@ -26,6 +26,8 @@ class Session {
   Tab& Add(std::string url);
   Tab* Find(int id);
   void Remove(int id, bool archive);
+  bool Restore(int id);
+  std::vector<int> ClearToday();
   void Switch(std::string name);
   void ArchiveToday(long long cutoff, int protected_id = 0);
   static long long Now();

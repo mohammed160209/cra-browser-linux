@@ -18,8 +18,8 @@ int main() {
   pinned.favorite = true;
   pinned.folder = "Research";
   const int work = pinned.id;
-  original.Add("https://example.com");
-  original.Remove(original.selected, true);
+  const int closed = original.Add("https://example.com").id;
+  original.Remove(closed, true);
   if (!original.Save()) return 1;
 
   cra::Session restored(path);
@@ -33,6 +33,16 @@ int main() {
     return 3;
   restored.Switch("Personal");
   if (restored.selected != personal) return 4;
+  if (restored.Restore(-1) || !restored.Restore(closed) || restored.space != "Work" ||
+      restored.selected != closed || !restored.archived.empty())
+    return 8;
+  if (restored.ClearToday() != std::vector<int>{closed} || restored.Find(closed) ||
+      !restored.Find(personal) || restored.selected != work)
+    return 9;
+  restored.Remove(work, true);
+  if (!restored.Restore(work) || restored.Find(work)->folder != "Research" ||
+      !restored.Find(work)->favorite || restored.Find(work)->home != "https://example.net")
+    return 10;
   restored.ArchiveToday(cra::Session::Now() + 1);
   if (restored.tabs.size() != 1 || !restored.Find(work)) return 5;
   if (cra::Resolve(" example.org ") != "https://example.org" ||

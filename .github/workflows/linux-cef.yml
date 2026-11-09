@@ -26,6 +26,9 @@ jobs:
           mkdir cef
           tar -xf cef.tar.bz2 -C cef --strip-components=1
       - name: Build and test
+        env:
+          CFLAGS: "-Wp,-D_FORTIFY_SOURCE=3"
+          CXXFLAGS: "-Wp,-D_FORTIFY_SOURCE=3"
         run: |
           cmake -S . -B build -G Ninja -DCEF_ROOT="$PWD/cef" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
           cmake --build build -j 4
