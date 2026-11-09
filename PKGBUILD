@@ -14,11 +14,16 @@ depends=(
     'python'
     'python-gobject'
 )
-makedepends=('git' 'python-setuptools' 'python-build' 'python-installer')
+makedepends=('git' 'python-setuptools' 'python-wheel' 'python-build' 'python-installer')
 provides=('cra-browser')
 conflicts=('cra-browser')
 source=("git+https://github.com/mohammed160209/cra-browser-linux.git")
 sha256sums=('SKIP')
+
+pkgver() {
+    cd "${srcdir}/${pkgname%-git}"
+    printf "0.1.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
 
 build() {
     cd "${srcdir}/${pkgname%-git}"
@@ -28,7 +33,6 @@ build() {
 package() {
     cd "${srcdir}/${pkgname%-git}"
 
-    # Install using setuptools into package root
     python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
 
     # Install executable launcher

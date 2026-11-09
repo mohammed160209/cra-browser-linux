@@ -21,6 +21,9 @@ class TabData:
     muted: bool = False
     custom_icon: Optional[str] = None
     tile_color: Optional[str] = None
+    session_state: Optional[str] = None  # Base64 serialized WebKit.WebViewSessionState
+    is_sleeping: bool = False
+    is_audible: bool = False
 
     def note_title(self, title: str, pinned: bool = False):
         if title:
@@ -34,9 +37,10 @@ class TabData:
 
     def touch_active(self):
         self.time_last_active = time.time()
+        self.is_sleeping = False
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "url": self.url,
             "savedURL": self.saved_url,
             "savedTitle": self.saved_title,
@@ -45,6 +49,9 @@ class TabData:
             "muted": self.muted,
             "tileColor": self.tile_color,
         }
+        if self.session_state:
+            d["sessionState"] = self.session_state
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> TabData:
@@ -57,6 +64,8 @@ class TabData:
             time_last_active=data.get("timeLastActiveAt", time.time()),
             muted=data.get("muted", False),
             tile_color=data.get("tileColor"),
+            session_state=data.get("sessionState"),
+            is_sleeping=data.get("isSleeping", False),
         )
 
 

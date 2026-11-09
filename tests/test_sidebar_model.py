@@ -33,6 +33,12 @@ def test_tab_data_serialization():
     assert restored.saved_url == tab.saved_url
     assert restored.saved_title == tab.saved_title
 
+    tab.session_state = "base64EncodedState=="
+    d2 = tab.to_dict()
+    assert d2["sessionState"] == "base64EncodedState=="
+    restored2 = TabData.from_dict(d2)
+    assert restored2.session_state == "base64EncodedState=="
+
 
 def test_sidebar_item_away_from_home():
     tab_data = TabData(url="https://github.com", saved_url="https://github.com")

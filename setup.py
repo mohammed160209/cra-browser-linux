@@ -7,7 +7,11 @@ setup(
     author="icesaviour / mohammed160209",
     url="https://github.com/mohammed160209/cra-browser-linux",
     packages=find_packages(),
-    scripts=["bin/cra-browser"],
+    entry_points={
+        "console_scripts": [
+            "cra-browser = cra_browser.app:main",
+        ],
+    },
     data_files=[
         ("share/applications", ["data/app.crabrowser.Cra.desktop"]),
         ("share/metainfo", ["data/app.crabrowser.Cra.metainfo.xml"]),

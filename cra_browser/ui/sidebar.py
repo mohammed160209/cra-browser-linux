@@ -38,6 +38,7 @@ class Sidebar(Gtk.Box):
         on_new_tab_requested: Optional[Callable[[], None]] = None,
         on_new_folder_requested: Optional[Callable[[Optional[str]], None]] = None,
         on_open_split: Optional[Callable[[SidebarItem], None]] = None,
+        on_toggle_mute: Optional[Callable[[SidebarItem], None]] = None,
         on_edit_space: Optional[Callable[[str], None]] = None,
         on_delete_space: Optional[Callable[[str], None]] = None,
     ):
@@ -61,6 +62,7 @@ class Sidebar(Gtk.Box):
         self.on_new_tab_requested = on_new_tab_requested
         self.on_new_folder_requested = on_new_folder_requested
         self.on_open_split = on_open_split
+        self.on_toggle_mute = on_toggle_mute
         self.on_edit_space = on_edit_space
         self.on_delete_space = on_delete_space
 
@@ -269,6 +271,7 @@ class Sidebar(Gtk.Box):
                     on_make_home=self.on_make_home,
                     on_rename=self.on_rename_item,
                     on_open_split=self.on_open_split,
+                    on_toggle_mute=self.on_toggle_mute,
                     indent_level=indent,
                 )
                 self.pinned_list.append(row)
@@ -294,6 +297,7 @@ class Sidebar(Gtk.Box):
                 on_toggle_pin=self.on_toggle_pin,
                 on_rename=self.on_rename_item,
                 on_open_split=self.on_open_split,
+                on_toggle_mute=self.on_toggle_mute,
             )
             self.today_list.append(row)
 

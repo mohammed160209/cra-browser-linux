@@ -22,6 +22,7 @@ class LittleWindow(Adw.Window):
         on_promote_to_tab: Optional[Callable[[str, Optional[str]], None]] = None,
         user_content_manager: Optional[WebKit.UserContentManager] = None,
         available_spaces: Optional[List[dict]] = None,
+        network_session: Optional[WebKit.NetworkSession] = None,
     ):
         super().__init__()
         self.set_title("Little Cra")
@@ -77,6 +78,7 @@ class LittleWindow(Adw.Window):
             on_url_changed=self._on_view_url_changed,
             on_nav_state_changed=self._on_nav_state_changed,
             user_content_manager=user_content_manager,
+            network_session=network_session,
         )
         main_box.append(self.browser_view)
 

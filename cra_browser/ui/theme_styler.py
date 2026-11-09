@@ -129,6 +129,21 @@ class ThemeStyler:
             border: 1px solid {border_color};
         }}
 
+        .cra-tab-row.cra-tab-sleeping {{
+            opacity: 0.72;
+        }}
+
+        .cra-audio-btn {{
+            color: #3584E4;
+            padding: 2px 4px;
+            min-height: 22px;
+            min-width: 22px;
+        }}
+
+        .cra-audio-btn:hover {{
+            background: rgba(53, 132, 228, 0.2);
+        }}
+
         .cra-home-reset-btn {{
             color: #3584E4;
             padding: 2px 4px;

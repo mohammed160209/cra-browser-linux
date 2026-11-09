@@ -12,13 +12,28 @@ from .sidebar import SidebarDocument, SidebarItem
 def get_config_dir() -> Path:
     """Get the XDG configuration directory for Cra Browser."""
     xdg_config = os.environ.get("XDG_CONFIG_HOME")
-    if xdg_config:
-        base = Path(xdg_config)
-    else:
-        base = Path.home() / ".config"
+    base = Path(xdg_config) if xdg_config else Path.home() / ".config"
     config_dir = base / "cra-browser"
     config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir
+
+
+def get_data_dir() -> Path:
+    """Get the XDG data directory for persistent profile data (cookies, storage)."""
+    xdg_data = os.environ.get("XDG_DATA_HOME")
+    base = Path(xdg_data) if xdg_data else Path.home() / ".local" / "share"
+    data_dir = base / "cra-browser"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
+def get_cache_dir() -> Path:
+    """Get the XDG cache directory for WebKit disk cache and temporary files."""
+    xdg_cache = os.environ.get("XDG_CACHE_HOME")
+    base = Path(xdg_cache) if xdg_cache else Path.home() / ".cache"
+    cache_dir = base / "cra-browser"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
 
 
 class Storage:
@@ -71,6 +86,8 @@ class Storage:
             "search_engine": "DuckDuckGo",
             "adblock_enabled": True,
             "auto_archive_threshold_hours": 24,
+            "tab_sleep_enabled": True,
+            "tab_sleep_threshold_minutes": 60,
             "sidebar_width": 260,
             "hardware_acceleration": True,
             "https_only": True,

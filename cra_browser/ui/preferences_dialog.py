@@ -19,6 +19,15 @@ ARCHIVE_MAP = [
     ("Never", 0),
 ]
 
+TAB_SLEEP_MAP = [
+    ("15 Minutes", 15),
+    ("30 Minutes", 30),
+    ("1 Hour", 60),
+    ("2 Hours", 120),
+    ("4 Hours", 240),
+    ("Never", 0),
+]
+
 
 class PreferencesDialog(Adw.PreferencesWindow):
     """Preferences and settings dialog."""
@@ -106,6 +115,26 @@ class PreferencesDialog(Adw.PreferencesWindow):
         hw_row.connect("notify::active", self._on_hw_changed)
         perf_group.add(hw_row)
 
+        sleep_switch = Adw.SwitchRow()
+        sleep_switch.set_title("Memory Saver & Tab Sleep")
+        sleep_switch.set_subtitle("Hibernate background tabs to reduce memory & CPU usage")
+        sleep_switch.set_active(settings.get("tab_sleep_enabled", True))
+        sleep_switch.connect("notify::active", self._on_tab_sleep_enabled_changed)
+        perf_group.add(sleep_switch)
+
+        sleep_combo = Adw.ComboRow()
+        sleep_combo.set_title("Hibernate Tabs After Inactivity")
+        sleep_combo.set_subtitle("Restore tabs seamlessly upon clicking them")
+        sleep_labels = [opt[0] for opt in TAB_SLEEP_MAP]
+        sleep_combo.set_model(Gtk.StringList.new(sleep_labels))
+        current_sleep_mins = settings.get("tab_sleep_threshold_minutes", 60)
+        for idx, (_, val) in enumerate(TAB_SLEEP_MAP):
+            if val == current_sleep_mins:
+                sleep_combo.set_selected(idx)
+                break
+        sleep_combo.connect("notify::selected", self._on_tab_sleep_thresh_changed)
+        perf_group.add(sleep_combo)
+
         # Archive Management Group
         archive_group = Adw.PreferencesGroup()
         archive_group.set_title("Archive Management")
@@ -142,6 +171,16 @@ class PreferencesDialog(Adw.PreferencesWindow):
     def _on_hw_changed(self, row, _):
         self.settings["hardware_acceleration"] = row.get_active()
         self.on_change(self.settings)
+
+    def _on_tab_sleep_enabled_changed(self, row, _):
+        self.settings["tab_sleep_enabled"] = row.get_active()
+        self.on_change(self.settings)
+
+    def _on_tab_sleep_thresh_changed(self, row, _):
+        selected_idx = row.get_selected()
+        if 0 <= selected_idx < len(TAB_SLEEP_MAP):
+            self.settings["tab_sleep_threshold_minutes"] = TAB_SLEEP_MAP[selected_idx][1]
+            self.on_change(self.settings)
 
     def _on_clear_archive(self, btn: Gtk.Button):
         Storage.clear_archive()

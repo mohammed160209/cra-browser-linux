@@ -25,6 +25,7 @@ class TabRow(Gtk.Box):
         on_make_home: Optional[Callable[[SidebarItem], None]] = None,
         on_rename: Optional[Callable[[SidebarItem, str], None]] = None,
         on_open_split: Optional[Callable[[SidebarItem], None]] = None,
+        on_toggle_mute: Optional[Callable[[SidebarItem], None]] = None,
         indent_level: int = 0,
     ):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -38,11 +39,14 @@ class TabRow(Gtk.Box):
         self.on_make_home = on_make_home
         self.on_rename = on_rename
         self.on_open_split = on_open_split
+        self.on_toggle_mute = on_toggle_mute
         self.indent_level = indent_level
 
         self.add_css_class("cra-tab-row")
         if is_active:
             self.add_css_class("active")
+        if item.tab_data and item.tab_data.is_sleeping:
+            self.add_css_class("cra-tab-sleeping")
 
         # Indent if inside a folder
         if indent_level > 0:
@@ -62,6 +66,8 @@ class TabRow(Gtk.Box):
         # Tab favicon / icon
         self.icon = Gtk.Image.new_from_icon_name("text-html-symbolic")
         self.icon.set_pixel_size(16)
+        if item.tab_data and item.tab_data.is_sleeping and not is_active:
+            self.icon.set_opacity(0.6)
         self.append(self.icon)
 
         # Title label
@@ -69,7 +75,22 @@ class TabRow(Gtk.Box):
         self.label.set_hexpand(True)
         self.label.set_halign(Gtk.Align.START)
         self.label.set_ellipsize(3)  # PANGO_ELLIPSIZE_END
+        if item.tab_data and item.tab_data.is_sleeping and not is_active:
+            self.label.set_opacity(0.7)
         self.append(self.label)
+
+        # Audio / Mute indicator button (visible when playing audio)
+        self.audio_btn: Optional[Gtk.Button] = None
+        if item.tab_data and item.tab_data.is_audible:
+            audio_icon = "audio-volume-muted-symbolic" if item.tab_data.muted else "audio-volume-high-symbolic"
+            self.audio_btn = Gtk.Button.new_from_icon_name(audio_icon)
+            self.audio_btn.add_css_class("flat")
+            self.audio_btn.add_css_class("cra-nav-btn")
+            self.audio_btn.add_css_class("cra-audio-btn")
+            self.audio_btn.set_tooltip_text("Unmute Tab" if item.tab_data.muted else "Mute Tab")
+            if on_toggle_mute:
+                self.audio_btn.connect("clicked", lambda *_: on_toggle_mute(self.item))
+            self.append(self.audio_btn)
 
         # Reset-to-home indicator button (if pinned and navigated away from home)
         self.home_btn: Optional[Gtk.Button] = None
@@ -84,7 +105,7 @@ class TabRow(Gtk.Box):
             self.append(self.home_btn)
 
         # Pin / Unpin button
-        pin_icon = "view-pin-symbolic" if is_pinned else "view-pin-symbolic"
+        pin_icon = "view-pin-symbolic"
         self.pin_btn = Gtk.Button.new_from_icon_name(pin_icon)
         self.pin_btn.add_css_class("flat")
         self.pin_btn.add_css_class("cra-nav-btn")

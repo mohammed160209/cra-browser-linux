@@ -12,8 +12,9 @@ from gi.repository import Gtk, Gdk, Adw, WebKit
 
 from ..model.sidebar import SidebarDocument, SidebarItem
 from ..model.space import Space
-from ..model.storage import Storage
+from ..model.storage import Storage, get_data_dir, get_cache_dir
 from ..services.adblock import AdblockService
+from ..services.tab_sleep import TabSleepService
 from .theme_styler import ThemeStyler
 from .sidebar import Sidebar
 from .browser_view import BrowserView
@@ -37,6 +38,18 @@ class CraWindow(Adw.ApplicationWindow):
         # Run auto-archiving for idle Today tabs based on user threshold
         Storage.run_auto_archive(self.doc, self.settings)
 
+        # Persistent WebKit NetworkSession with persistent SQLite cookie storage
+        data_dir = get_data_dir()
+        cache_dir = get_cache_dir()
+        try:
+            self.network_session = WebKit.NetworkSession.new(str(data_dir / "profile"), str(cache_dir / "webkit"))
+            cookie_mgr = self.network_session.get_cookie_manager()
+            if hasattr(WebKit, "CookiePersistentStorage"):
+                cookie_mgr.set_persistent_storage(str(data_dir / "cookies.sqlite"), WebKit.CookiePersistentStorage.SQLITE)
+        except Exception as e:
+            print(f"[CraWindow] NetworkSession initialization fallback: {e}")
+            self.network_session = None
+
         # Content blocker
         self.adblock_service = AdblockService()
         self.user_content_manager = WebKit.UserContentManager()
@@ -44,6 +57,17 @@ class CraWindow(Adw.ApplicationWindow):
             self.adblock_service.initialize(
                 on_ready=lambda: self.adblock_service.attach_to_manager(self.user_content_manager)
             )
+
+        # Tab Sleep / Memory Saver Service
+        self.tab_sleep_service = TabSleepService(
+            doc=self.doc,
+            settings=self.settings,
+            get_active_tab_ids=self._get_active_tab_ids,
+            get_view=lambda tid: self.views.get(tid),
+            discard_view=self._discard_view_for_sleep,
+            on_tab_slept=self._on_tab_slept,
+        )
+        self.tab_sleep_service.start()
 
         # Dynamic Theme Styler
         self.theme_styler = ThemeStyler()
@@ -83,6 +107,7 @@ class CraWindow(Adw.ApplicationWindow):
             on_new_tab_requested=self.on_new_tab_requested,
             on_new_folder_requested=self.on_new_folder_requested,
             on_open_split=self.on_open_tab_in_split,
+            on_toggle_mute=self.on_toggle_mute,
             on_edit_space=self.on_edit_space,
             on_delete_space=self.on_delete_space,
         )
@@ -160,6 +185,8 @@ class CraWindow(Adw.ApplicationWindow):
             return self.views[item.id]
 
         url = item.tab_data.url if item.tab_data else "about:blank"
+        saved_state = item.tab_data.session_state if item.tab_data else None
+
         view = BrowserView(
             url=url,
             on_title_changed=lambda title, it=item: self._on_title_updated(it, title),
@@ -167,9 +194,57 @@ class CraWindow(Adw.ApplicationWindow):
             on_new_tab_requested=lambda uri: self._open_new_today_tab(uri),
             on_nav_state_changed=self._on_nav_state_updated,
             user_content_manager=self.user_content_manager,
+            network_session=self.network_session,
+            on_audio_changed=lambda is_audible, it=item: self._on_audio_changed(it, is_audible),
+            saved_session_state=saved_state,
         )
         self.views[item.id] = view
         return view
+
+    def _get_active_tab_ids(self) -> set[str]:
+        active = set()
+        if self.active_tab_id:
+            active.add(self.active_tab_id)
+        if self.split_view and self.split_view.is_split and self.split_view.secondary_view:
+            for tid, v in self.views.items():
+                if v == self.split_view.secondary_view:
+                    active.add(tid)
+        return active
+
+    def _discard_view_for_sleep(self, tab_id: str):
+        if tab_id in self.views:
+            view = self.views[tab_id]
+            if self.split_view:
+                if view in (self.split_view.primary_view, self.split_view.secondary_view):
+                    return
+            try:
+                if hasattr(view.web_view, "terminate_web_process"):
+                    view.web_view.terminate_web_process()
+            except Exception:
+                pass
+            del self.views[tab_id]
+
+    def _on_tab_slept(self, item: SidebarItem):
+        space = self.doc.get_space(self.active_space_id)
+        if space:
+            self.sidebar.update_sidebar(space, self.active_tab_id)
+
+    def _on_audio_changed(self, item: SidebarItem, is_audible: bool):
+        if item.tab_data:
+            item.tab_data.is_audible = is_audible
+            space = self.doc.get_space(self.active_space_id)
+            if space:
+                self.sidebar.update_sidebar(space, self.active_tab_id)
+
+    def on_toggle_mute(self, item: SidebarItem):
+        if item.id in self.views:
+            view = self.views[item.id]
+            view.set_muted(not view.is_muted)
+            if item.tab_data:
+                item.tab_data.muted = view.is_muted
+            space = self.doc.get_space(self.active_space_id)
+            if space:
+                self.sidebar.update_sidebar(space, self.active_tab_id)
 
     def on_tab_selected(self, item: SidebarItem):
         if item.item_type == "folder":
@@ -387,6 +462,7 @@ class CraWindow(Adw.ApplicationWindow):
                 on_promote_to_tab=self._promote_little_window_tab,
                 user_content_manager=self.user_content_manager,
                 available_spaces=spaces_meta,
+                network_session=self.network_session,
             )
             win.present()
         elif action == "toggle_split":
@@ -439,6 +515,7 @@ class CraWindow(Adw.ApplicationWindow):
             secondary = BrowserView(
                 url="https://duckduckgo.com",
                 user_content_manager=self.user_content_manager,
+                network_session=self.network_session,
                 on_nav_state_changed=self._on_nav_state_updated,
             )
             self.split_view.attach_secondary(secondary)
@@ -557,6 +634,7 @@ class CraWindow(Adw.ApplicationWindow):
                 on_promote_to_tab=self._promote_little_window_tab,
                 user_content_manager=self.user_content_manager,
                 available_spaces=spaces_meta,
+                network_session=self.network_session,
             )
             win.present()
             return True
