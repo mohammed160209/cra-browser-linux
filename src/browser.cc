@@ -1,6 +1,9 @@
 #include "browser.h"
 
 #include <algorithm>
+#include <cctype>
+#include <set>
+#include <string_view>
 #include <filesystem>
 #include <functional>
 #include <iostream>
@@ -11,17 +14,24 @@
 
 #include "session.h"
 #include "include/cef_app.h"
+#include "include/cef_color_ids.h"
 #include "include/cef_display_handler.h"
 #include "include/cef_download_handler.h"
 #include "include/cef_focus_handler.h"
+#include "include/cef_image.h"
 #include "include/cef_request_context.h"
 #include "include/cef_life_span_handler.h"
 #include "include/cef_load_handler.h"
+#include "include/cef_menu_model.h"
+#include "include/cef_menu_model_delegate.h"
+#include "include/cef_parser.h"
 #include "include/views/cef_box_layout.h"
 #include "include/views/cef_fill_layout.h"
 #include "include/views/cef_browser_view.h"
 #include "include/views/cef_browser_view_delegate.h"
 #include "include/views/cef_label_button.h"
+#include "include/views/cef_overlay_controller.h"
+#include "include/views/cef_panel_delegate.h"
 #include "include/views/cef_scroll_view.h"
 #include "include/views/cef_textfield.h"
 #include "include/views/cef_textfield_delegate.h"
@@ -32,6 +42,59 @@
 namespace cra {
 namespace {
 
+constexpr int kSidebarWidth = 228;
+constexpr cef_color_t kFrame = 0xffdbd8ed;
+constexpr cef_color_t kSidebar = 0xffe5e0ef;
+constexpr cef_color_t kInk = 0xff302b42;
+constexpr cef_color_t kMuted = 0xff615a75;
+constexpr cef_color_t kTile = 0xffd9d3e9;
+constexpr cef_color_t kSelected = 0xfff8f6fb;
+constexpr cef_color_t kToolbar = 0xff4348b9;
+constexpr cef_color_t kToolbarInk = 0xfffaf9ff;
+constexpr cef_color_t kCommand = 0xff231f30;
+constexpr cef_color_t kCommandSelection = 0xff514b83;
+
+std::string Label(const Tab& tab) {
+  if (tab.url == "about:blank" || tab.url.empty()) return "New Tab";
+  return tab.title.empty() ? tab.url : tab.title;
+}
+
+std::string DisplayAddress(const std::string& url) {
+  if (url.empty() || url == "about:blank") return "Search or Enter URL…";
+  CefURLParts parts;
+  if (CefParseURL(url, parts)) {
+    const auto host = CefString(&parts.host).ToString();
+    if (!host.empty()) return host;
+  }
+  return url;
+}
+
+std::string Lowercase(std::string value) {
+  for (char& c : value) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return value;
+}
+
+void ApplyChromeTheme(CefRefPtr<CefWindow> window) {
+  window->SetThemeColor(CEF_ColorFrameActive, kFrame);
+  window->SetThemeColor(CEF_ColorFrameInactive, kFrame);
+  window->SetThemeColor(CEF_ColorTextfieldBackground, kCommand);
+  window->SetThemeColor(CEF_ColorTextfieldForeground, kToolbarInk);
+  window->SetThemeColor(CEF_ColorTextfieldForegroundPlaceholder, 0xffbbb4cd);
+  window->SetThemeColor(CEF_ColorTextfieldSelectionBackground, kCommandSelection);
+  window->SetThemeColor(CEF_ColorTextfieldSelectionForeground, kToolbarInk);
+}
+
+class FixedPanel : public CefPanelDelegate {
+ public:
+  explicit FixedPanel(CefSize size) : size_(size) {}
+  CefSize GetPreferredSize(CefRefPtr<CefView>) override { return size_; }
+  CefSize GetMinimumSize(CefRefPtr<CefView>) override { return size_; }
+
+ private:
+  const CefSize size_;
+  IMPLEMENT_REFCOUNTING(FixedPanel);
+};
+
 class UiTask : public CefTask {
  public:
   explicit UiTask(std::function<void()> action) : action_(std::move(action)) {}
@@ -39,6 +102,20 @@ class UiTask : public CefTask {
  private:
   std::function<void()> action_;
   IMPLEMENT_REFCOUNTING(UiTask);
+};
+
+class FaviconDownload : public CefDownloadImageCallback {
+ public:
+  explicit FaviconDownload(std::function<void(CefRefPtr<CefImage>)> finished)
+      : finished_(std::move(finished)) {}
+
+  void OnDownloadImageFinished(const CefString&, int, CefRefPtr<CefImage> image) override {
+    if (image && !image->IsEmpty()) finished_(image);
+  }
+
+ private:
+  const std::function<void(CefRefPtr<CefImage>)> finished_;
+  IMPLEMENT_REFCOUNTING(FaviconDownload);
 };
 
 class Button : public CefButtonDelegate {
@@ -66,18 +143,109 @@ class Entry : public CefTextfieldDelegate {
   IMPLEMENT_REFCOUNTING(Entry);
 };
 
-CefRefPtr<CefBoxLayout> Box(CefRefPtr<CefPanel> panel, bool vertical, int gap = 0) {
+class ViewButton : public CefButtonDelegate {
+ public:
+  explicit ViewButton(std::function<void(CefRefPtr<CefButton>)> action)
+      : action_(std::move(action)) {}
+  void OnButtonPressed(CefRefPtr<CefButton> button) override {
+    auto action = action_;
+    action(button);
+  }
+ private:
+  const std::function<void(CefRefPtr<CefButton>)> action_;
+  IMPLEMENT_REFCOUNTING(ViewButton);
+};
+
+CefRefPtr<CefLabelButton> AddMenuButton(
+    CefRefPtr<CefPanel> parent, const std::string& title, const std::string& name,
+    std::function<void(CefRefPtr<CefButton>)> action, int width = 28) {
+  auto button = CefLabelButton::CreateLabelButton(new ViewButton(std::move(action)), title);
+  button->SetFontList("sans-serif, 13px");
+  button->SetEnabledTextColors(kInk);
+  button->SetMinimumSize({width, 30});
+  if (width) button->SetMaximumSize({width, 30});
+  button->SetTooltipText(name);
+  button->SetAccessibleName(name);
+  parent->AddChildView(button);
+  return button;
+}
+
+class CommandEntry : public CefTextfieldDelegate {
+ public:
+  CommandEntry(std::function<bool(int)> key, std::function<void()> changed)
+      : key_(std::move(key)), changed_(std::move(changed)) {}
+
+  bool OnKeyEvent(CefRefPtr<CefTextfield>, const CefKeyEvent& event) override {
+    return event.type == KEYEVENT_RAWKEYDOWN && key_(event.windows_key_code);
+  }
+
+  void OnAfterUserAction(CefRefPtr<CefTextfield>) override { changed_(); }
+
+ private:
+  std::function<bool(int)> key_;
+  std::function<void()> changed_;
+  IMPLEMENT_REFCOUNTING(CommandEntry);
+};
+
+using MenuOptions = std::vector<std::pair<std::string, std::function<void()>>>;
+
+class Menu : public CefMenuModelDelegate {
+ public:
+  explicit Menu(MenuOptions choices) : choices_(std::move(choices)) {}
+
+  CefRefPtr<CefMenuModel> Model() {
+    auto model = CefMenuModel::CreateMenuModel(this);
+    for (size_t i = 0; i < choices_.size(); ++i)
+      model->AddItem(static_cast<int>(i) + 1, choices_[i].first);
+    return model;
+  }
+
+  void ExecuteCommand(CefRefPtr<CefMenuModel>, int id, cef_event_flags_t) override {
+    if (id > 0 && static_cast<size_t>(id) <= choices_.size()) choices_[id - 1].second();
+  }
+
+ private:
+  const MenuOptions choices_;
+  IMPLEMENT_REFCOUNTING(Menu);
+};
+
+CefRefPtr<CefBoxLayout> Box(CefRefPtr<CefPanel> panel, bool vertical, int gap = 0,
+                             CefInsets insets = {}) {
   CefBoxLayoutSettings settings;
   settings.horizontal = !vertical;
   settings.between_child_spacing = gap;
+  settings.inside_border_insets = insets;
   return panel->SetToBoxLayout(settings);
 }
 
-void AddButton(CefRefPtr<CefPanel> parent, const std::string& text,
-               std::function<void()> action) {
+CefRefPtr<CefLabelButton> AddButton(
+    CefRefPtr<CefPanel> parent, const std::string& text,
+    std::function<void()> action, cef_color_t foreground = kInk,
+    cef_color_t background = 0, int height = 30, bool center = false,
+    int width = 0, std::string_view tooltip = {}, bool bold = false) {
   auto button = CefLabelButton::CreateLabelButton(new Button(std::move(action)), text);
-  button->SetHorizontalAlignment(CEF_HORIZONTAL_ALIGNMENT_LEFT);
+  button->SetFontList(bold ? "sans-serif, Bold 13px" : "sans-serif, 13px");
+  button->SetHorizontalAlignment(center ? CEF_HORIZONTAL_ALIGNMENT_CENTER
+                                        : CEF_HORIZONTAL_ALIGNMENT_LEFT);
+  button->SetEnabledTextColors(foreground);
+  button->SetInkDropEnabled(true);
+  if (background) button->SetBackgroundColor(background);
+  button->SetMinimumSize({width, height});
+  if (width) button->SetMaximumSize({width, height});
+  if (!tooltip.empty()) {
+    button->SetTooltipText(std::string(tooltip));
+    button->SetAccessibleName(std::string(tooltip));
+  }
   parent->AddChildView(button);
+  return button;
+}
+
+CefRefPtr<CefLabelButton> Caption(CefRefPtr<CefPanel> parent, const std::string& text,
+                                  cef_color_t foreground = kMuted) {
+  auto label = AddButton(parent, text, [] {}, foreground, 0, 24, false, 0, {}, true);
+  label->SetEnabled(false);
+  label->SetTextColor(CEF_BUTTON_STATE_DISABLED, foreground);
+  return label;
 }
 
 class PopupWindow : public CefWindowDelegate {
@@ -134,9 +302,13 @@ class ViewDelegate : public CefBrowserViewDelegate {
   IMPLEMENT_REFCOUNTING(ViewDelegate);
 };
 
+enum class CommandMode { NewTab, Address, Space, Folder };
+
 enum ArchiveAccelerator {
   kRestoreClosed = 1000,
   kClearToday,
+  kLittleWindow,
+  kPrivateWindow,
 };
 
 class Shell;
@@ -148,6 +320,10 @@ class MainWindow : public CefWindowDelegate {
   bool CanClose(CefRefPtr<CefWindow> window) override;
   void OnWindowDestroyed(CefRefPtr<CefWindow> window) override;
   bool OnAccelerator(CefRefPtr<CefWindow>, int command) override;
+  void OnWindowBoundsChanged(CefRefPtr<CefWindow>, const CefRect&) override;
+  void OnThemeColorsChanged(CefRefPtr<CefWindow> window, bool) override {
+    ApplyChromeTheme(window);
+  }
   CefSize GetPreferredSize(CefRefPtr<CefView>) override { return {1220, 800}; }
  private:
   CefRefPtr<Shell> shell_;
@@ -191,7 +367,7 @@ class Shell : public CefClient,
   }
 
   void OnGotFocus(CefRefPtr<CefBrowser> browser) override {
-    if (closing_ || !address_) return;
+    if (closing_ || !location_) return;
     if (secondary_ && secondary_->GetBrowser() == browser) {
       secondary_focused_ = true;
     } else if (auto* tab = FindBrowser(browser); tab && tab->id == session_.selected) {
@@ -199,45 +375,49 @@ class Shell : public CefClient,
     } else {
       return;
     }
-    address_->SetText(browser->GetMainFrame()->GetURL());
+    UpdateLocation(browser->GetMainFrame()->GetURL());
   }
 
   void Build(CefRefPtr<CefWindow> window) {
     window_ = window;
-    window_->SetTitle("Cra Browser");
+    window_->SetTitle("Cra");
+    ApplyChromeTheme(window_);
+    window_->ThemeChanged();
     auto root = CefPanel::CreatePanel(nullptr);
-    auto row = Box(root, false, 8);
+    root->SetBackgroundColor(kFrame);
+    auto row = Box(root, false, 8, {8, 0, 8, 8});
     window_->SetToFillLayout();
     window_->AddChildView(root);
 
-    sidebar_ = CefPanel::CreatePanel(nullptr);
-    Box(sidebar_, true, 4);
-    sidebar_->SetSize({238, 0});
+    sidebar_ = CefPanel::CreatePanel(new FixedPanel({kSidebarWidth, 1}));
+    sidebar_->SetBackgroundColor(kSidebar);
+    Box(sidebar_, true, 6, {4, 8, 2, 8});
     root->AddChildView(sidebar_);
 
     auto workspace = CefPanel::CreatePanel(nullptr);
-    auto column = Box(workspace, true, 4);
+    workspace->SetBackgroundColor(kSelected);
+    auto column = Box(workspace, true);
     root->AddChildView(workspace);
     row->SetFlexForView(workspace, 1);
 
     auto toolbar = CefPanel::CreatePanel(nullptr);
-    auto bar = Box(toolbar, false, 4);
+    toolbar->SetBackgroundColor(kToolbar);
+    auto bar = Box(toolbar, false, 3, {2, 6, 2, 6});
     workspace->AddChildView(toolbar);
-    AddButton(toolbar, "Back", [this] { if (auto page = Active()) page->GoBack(); });
-    AddButton(toolbar, "Forward", [this] { if (auto page = Active()) page->GoForward(); });
-    AddButton(toolbar, "Reload", [this] { if (auto page = Active()) page->Reload(); });
-    address_ = CefTextfield::CreateTextfield(new Entry([this](std::string input) {
-      Navigate(std::move(input));
-    }));
-    address_->SetPlaceholderText("Search or enter an address");
-    address_->SetAccessibleName("Address and command bar");
-    toolbar->AddChildView(address_);
-    bar->SetFlexForView(address_, 1);
-    AddButton(toolbar, "Split", [this] { Accelerate('E'); });
-    AddButton(toolbar, "DevTools", [this] {
-      if (auto page = Active())
-        page->GetHost()->ShowDevTools(CefWindowInfo{}, this, CefBrowserSettings{}, CefPoint{});
-    });
+    AddButton(toolbar, "◫", [this] { Accelerate('S'); },
+              kToolbarInk, 0, 29, true, 32, "Toggle sidebar");
+    back_ = AddButton(toolbar, "←", [this] { if (auto page = Active()) page->GoBack(); },
+                      kToolbarInk, 0, 29, true, 30, "Back");
+    forward_ = AddButton(toolbar, "→", [this] { if (auto page = Active()) page->GoForward(); },
+                         kToolbarInk, 0, 29, true, 30, "Forward");
+    AddButton(toolbar, "↻", [this] { if (auto page = Active()) page->Reload(); },
+              kToolbarInk, 0, 29, true, 30, "Reload");
+    location_ = AddButton(toolbar, "Search or Enter URL…",
+                          [this] { OpenCommand(CommandMode::Address); },
+                          kToolbarInk, 0, 29, true, 0, "Open command bar");
+    bar->SetFlexForView(location_, 1);
+    AddButton(toolbar, "◧", [this] { ToggleSplit(); },
+              kToolbarInk, 0, 29, true, 32, "Toggle Split View");
 
     auto panes = CefPanel::CreatePanel(nullptr);
     auto split = Box(panes, false, 4);
@@ -253,20 +433,32 @@ class Shell : public CefClient,
     split->SetFlexForView(right_, 1);
     right_->SetVisible(false);
 
+    BuildCommand();
     for (const int key : {'T', 'L', 'W', 'D', 'E', 'S'})
       window_->SetAccelerator(key, key, false, true, false, true);
     window_->SetAccelerator(kRestoreClosed, 'T', true, true, false, true);
     window_->SetAccelerator(kClearToday, 'K', true, true, false, true);
+    window_->SetAccelerator(kLittleWindow, 'N', false, true, true, true);
+    window_->SetAccelerator(kPrivateWindow, 'N', true, true, false, true);
 
     ShowSelected();
     window_->Show();
     window_->Layout();
   }
 
+  void PositionCommand() {
+    if (!command_overlay_ || !command_overlay_->IsVisible()) return;
+    const auto area = window_->GetClientAreaBoundsInScreen();
+    const int width = std::clamp(area.width - 32, 1, 560);
+    const int height = 58 + static_cast<int>(commands_.size()) * 34;
+    command_overlay_->SetBounds({(area.width - width) / 2,
+                                 std::max(8, area.height / 6), width, height});
+  }
+
   bool Accelerate(int command) {
     switch (command) {
-      case 'T': AddTab("about:blank"); [[fallthrough]];
-      case 'L': address_->RequestFocus(); address_->SelectAll(false); return true;
+      case 'T': OpenCommand(CommandMode::NewTab); return true;
+      case 'L': OpenCommand(CommandMode::Address); return true;
       case 'W': CloseSelected(); return true;
       case 'D': PinSelected(); return true;
       case 'S': sidebar_->SetVisible(!sidebar_->IsVisible()); window_->Layout(); return true;
@@ -275,6 +467,8 @@ class Shell : public CefClient,
         if (!session_.archived.empty()) RestoreArchived(session_.archived.back().id);
         return true;
       case kClearToday: ClearToday(); return true;
+      case kLittleWindow: Navigate("/little"); return true;
+      case kPrivateWindow: Navigate("/private"); return true;
       default: return false;
     }
   }
@@ -291,7 +485,12 @@ class Shell : public CefClient,
   void Destroyed() {
     window_ = nullptr;
     sidebar_ = nullptr;
-    address_ = nullptr;
+    location_ = nullptr;
+    back_ = nullptr;
+    forward_ = nullptr;
+    command_overlay_ = nullptr;
+    command_input_ = nullptr;
+    command_results_ = nullptr;
     left_ = nullptr;
     right_ = nullptr;
     views_.clear();
@@ -312,12 +511,11 @@ class Shell : public CefClient,
   void OnAddressChange(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
                        const CefString& url) override {
     if (closing_ || !frame->IsMain()) return;
-    if (secondary_focused_ && secondary_ && secondary_->GetBrowser() == browser &&
-        !address_->HasFocus()) address_->SetText(url);
+    if (secondary_focused_ && secondary_ && secondary_->GetBrowser() == browser)
+      UpdateLocation(url);
     if (auto* tab = FindBrowser(browser)) {
       tab->url = url;
-      if (tab->id == session_.selected && !secondary_focused_ && !address_->HasFocus())
-        address_->SetText(url);
+      if (tab->id == session_.selected && !secondary_focused_) UpdateLocation(url);
       Persist();
     }
   }
@@ -329,6 +527,32 @@ class Shell : public CefClient,
       RefreshSidebar();
       Persist();
     }
+  }
+
+  void OnLoadingStateChange(CefRefPtr<CefBrowser> browser, bool, bool can_go_back,
+                            bool can_go_forward) override {
+    if (closing_ || !location_ || Active() != browser) return;
+    back_->SetEnabled(can_go_back);
+    forward_->SetEnabled(can_go_forward);
+  }
+
+  void OnFaviconURLChange(CefRefPtr<CefBrowser> browser,
+                          const std::vector<CefString>& urls) override {
+    if (closing_ || urls.empty()) return;
+    const auto* tab = FindBrowser(browser);
+    const auto url = urls.front().ToString();
+    if (!tab || (!url.starts_with("https://") && !url.starts_with("http://"))) return;
+    if (favicon_urls_[tab->id] == url) return;
+    favicon_urls_[tab->id] = url;
+    CefRefPtr<Shell> self(this);
+    browser->GetHost()->DownloadImage(url, true, 32, false, new FaviconDownload(
+        [self = std::move(self), id = tab->id, url](CefRefPtr<CefImage> image) {
+          const auto requested = self->favicon_urls_.find(id);
+          if (self->closing_ || !self->window_ || !self->session_.Find(id) ||
+              requested == self->favicon_urls_.end() || requested->second != url) return;
+          self->favicons_[id] = image;
+          self->RefreshSidebar();
+        }));
   }
 
   void OnLoadEnd(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame, int) override {
@@ -426,60 +650,336 @@ class Shell : public CefClient,
       views_[id] = view;
       left_->AddChildView(view);
     }
-    address_->SetText(url == "about:blank" ? "" : url);
+    UpdateLocation(url);
     views_.at(id)->RequestFocus();
     RefreshSidebar();
     Persist();
     window_->Layout();
   }
 
+  void UpdateLocation(const std::string& url) {
+    location_->SetText(DisplayAddress(url));
+    if (auto page = Active()) {
+      back_->SetEnabled(page->CanGoBack());
+      forward_->SetEnabled(page->CanGoForward());
+    }
+  }
+
+  void ShowMenu(CefRefPtr<CefView> anchor, MenuOptions options) {
+    CefRefPtr<Menu> menu = new Menu(std::move(options));
+    const auto bounds = anchor->GetBoundsInScreen();
+    window_->ShowMenu(menu->Model(), {bounds.x, bounds.y + bounds.height},
+                      CEF_MENU_ANCHOR_TOPLEFT);
+  }
+
+  void SwitchSpace(const std::string& space) {
+    if (space != session_.space) ResetSecondary();
+    session_.Switch(space);
+    archive_visible_ = false;
+    ShowSelected();
+  }
+
+  void SelectTab(int id) {
+    const auto* tab = session_.Find(id);
+    if (!tab) return;
+    if (tab->space != session_.space) {
+      const auto space = tab->space;
+      ResetSecondary();
+      session_.Switch(space);
+    }
+    session_.selected = id;
+    archive_visible_ = false;
+    ShowSelected();
+  }
+
+  void TabMenu(CefRefPtr<CefView> anchor, int id) {
+    const auto* tab = session_.Find(id);
+    if (!tab) return;
+    ShowMenu(anchor, {
+        {tab->home.empty() ? "Pin Tab" : "Unpin Tab", [this, id] { TogglePin(id); }},
+        {tab->favorite ? "Remove from Favorites" : "Add to Favorites",
+         [this, id] { ToggleFavorite(id); }},
+        {"Move to Folder…", [this, id] { OpenCommand(CommandMode::Folder, id); }},
+        {"Open in Split View", [this, id] {
+           if (const auto* item = session_.Find(id)) OpenSplit(item->url);
+         }},
+        {"Archive Tab", [this, id] { ArchiveTab(id); }},
+    });
+  }
+
+  void AddTabRow(CefRefPtr<CefPanel> list, const Tab& tab, bool nested = false) {
+    auto row = CefPanel::CreatePanel(nullptr);
+    const bool active = !archive_visible_ && tab.id == session_.selected;
+    if (active) row->SetBackgroundColor(kSelected);
+    auto layout = Box(row, false, 1, {0, nested ? 13 : 0, 0, 0});
+    const auto label = Label(tab);
+    const auto icon = favicons_.find(tab.id);
+    auto button = AddButton(row, icon == favicons_.end() ? "◦  " + label : label, [this, id = tab.id] {
+      if (archive_visible_) RestoreArchived(id);
+      else SelectTab(id);
+    }, kInk, 0, 31, false, 0, label);
+    if (icon != favicons_.end()) button->SetImage(CEF_BUTTON_STATE_NORMAL, icon->second);
+    layout->SetFlexForView(button, 1);
+    if (!archive_visible_) {
+      if (active)
+        AddButton(row, "×", [this, id = tab.id] { ArchiveTab(id); },
+                  kMuted, 0, 30, true, 24, "Close tab");
+      AddMenuButton(row, "···", "Tab actions",
+                    [this, id = tab.id](CefRefPtr<CefButton> anchor) { TabMenu(anchor, id); });
+    }
+    list->AddChildView(row);
+  }
+
   void RefreshSidebar() {
     if (!sidebar_) return;
     sidebar_->RemoveAllChildViews();
-    auto controls = CefPanel::CreatePanel(nullptr);
-    Box(controls, true, 2);
-    sidebar_->AddChildView(controls);
-    AddButton(controls, "+ New tab", [this] { Accelerate('T'); });
-    AddButton(controls, "Pin / unpin", [this] { PinSelected(); });
-    AddButton(controls, "Clear Today", [this] { ClearToday(); });
-    AddButton(controls, archive_visible_ ? "Show tabs" : "Show archive", [this] {
-      archive_visible_ = !archive_visible_;
-      RefreshSidebar();
+    auto header = CefPanel::CreatePanel(nullptr);
+    auto header_layout = Box(header, false, 2);
+    auto caption = Caption(header, archive_visible_ ? "Archive" : session_.space, kInk);
+    header_layout->SetFlexForView(caption, 1);
+    AddMenuButton(header, "···", "Cra menu", [this](CefRefPtr<CefButton> anchor) {
+      ShowMenu(anchor, {
+          {"New Space…", [this] { OpenCommand(CommandMode::Space); }},
+          {"New Little Window", [this] { Navigate("/little"); }},
+          {"New Private Window", [this] { Navigate("/private"); }},
+          {"Developer Tools", [this] {
+             if (auto page = Active())
+               page->GetHost()->ShowDevTools(CefWindowInfo{}, this, CefBrowserSettings{}, CefPoint{});
+           }},
+      });
     });
-    for (const auto& name : session_.spaces) {
-      AddButton(controls, (name == session_.space ? "• " : "") + name, [this, name] {
-        if (name != session_.space) ResetSecondary();
-        session_.Switch(name);
-        archive_visible_ = false;
-        ShowSelected();
-      });
-    }
+    sidebar_->AddChildView(header);
+
     auto scroll = CefScrollView::CreateScrollView(nullptr);
+    scroll->SetBackgroundColor(kSidebar);
     auto list = CefPanel::CreatePanel(nullptr);
-    Box(list, true, 1);
-    size_t count = 0;
-    const auto& tabs = archive_visible_ ? session_.archived : session_.tabs;
-    for (const auto& tab : tabs) {
-      if (tab.space != session_.space) continue;
-      const auto name = tab.title.empty() ? tab.url : tab.title;
-      const auto prefix = tab.favorite ? "★ " : (tab.home.empty() ? "" : "📌 ");
-      const auto folder = tab.folder.empty() ? "" : tab.folder + " / ";
-      AddButton(list, std::string(tab.id == session_.selected ? "› " : "") +
-                      prefix + folder + name, [this, id = tab.id] {
-        if (archive_visible_) {
-          RestoreArchived(id);
-          return;
+    list->SetBackgroundColor(kSidebar);
+    Box(list, true, 3);
+
+    if (archive_visible_) {
+      Caption(list, "Recently archived");
+      bool any = false;
+      for (auto it = session_.archived.rbegin(); it != session_.archived.rend(); ++it) {
+        if (it->space != session_.space) continue;
+        AddTabRow(list, *it);
+        any = true;
+      }
+      if (!any) Caption(list, "Your archive is empty");
+    } else {
+      CefRefPtr<CefPanel> tiles;
+      int tile_index = 0;
+      for (const auto& tab : session_.tabs) {
+        if (tab.space != session_.space || !tab.favorite) continue;
+        if (tile_index++ % 4 == 0) {
+          tiles = CefPanel::CreatePanel(nullptr);
+          Box(tiles, false, 5);
+          list->AddChildView(tiles);
         }
-        session_.selected = id;
-        ShowSelected();
-      });
-      ++count;
+        const auto title = Label(tab);
+        const auto address = DisplayAddress(tab.url);
+        const auto glyph = !address.empty() && static_cast<unsigned char>(address.front()) < 128
+            ? std::string(1, static_cast<char>(std::toupper(static_cast<unsigned char>(address.front()))))
+            : "◦";
+        const auto icon = favicons_.find(tab.id);
+        auto tile = AddButton(tiles, icon == favicons_.end() ? glyph : "",
+                              [this, id = tab.id] { SelectTab(id); },
+                              kInk, tab.id == session_.selected ? kSelected : kTile,
+                              44, true, 46, title, true);
+        if (icon != favicons_.end()) tile->SetImage(CEF_BUTTON_STATE_NORMAL, icon->second);
+      }
+
+      std::set<std::string> shown_folders;
+      bool pinned_heading = false;
+      for (const auto& tab : session_.tabs) {
+        if (tab.space != session_.space || tab.favorite || tab.home.empty()) continue;
+        if (!pinned_heading) {
+          Caption(list, "Pinned");
+          pinned_heading = true;
+        }
+        if (tab.folder.empty()) {
+          AddTabRow(list, tab);
+          continue;
+        }
+        if (!shown_folders.insert(tab.folder).second) continue;
+        const auto key = std::pair{tab.space, tab.folder};
+        const bool collapsed = collapsed_folders_.contains(key);
+        AddButton(list, (collapsed ? "›  " : "⌄  ") + tab.folder, [this, key] {
+          if (!collapsed_folders_.erase(key)) collapsed_folders_.insert(key);
+          RefreshSidebar();
+        });
+        if (!collapsed) {
+          for (const auto& child : session_.tabs)
+            if (child.space == key.first && child.folder == key.second &&
+                !child.favorite && !child.home.empty()) AddTabRow(list, child, true);
+        }
+      }
+      auto today = CefPanel::CreatePanel(nullptr);
+      auto today_layout = Box(today, false);
+      auto today_caption = Caption(today, "Today");
+      today_layout->SetFlexForView(today_caption, 1);
+      AddButton(today, "Clear", [this] { ClearToday(); }, kMuted, 0, 24,
+                true, 47, "Clear Today tabs");
+      list->AddChildView(today);
+      for (const auto& tab : session_.tabs)
+        if (tab.space == session_.space && tab.home.empty() && !tab.favorite)
+          AddTabRow(list, tab);
+      AddButton(list, "+  New Tab", [this] { OpenCommand(CommandMode::NewTab); }, kMuted);
     }
-    list->SetSize({238, static_cast<int>(count * 36)});
+
+    list->SetSize({kSidebarWidth - 16, list->GetPreferredSize().height});
     scroll->SetContentView(list);
     sidebar_->AddChildView(scroll);
     sidebar_->GetLayout()->AsBoxLayout()->SetFlexForView(scroll, 1);
+
+    auto dock = CefPanel::CreatePanel(nullptr);
+    dock->SetBackgroundColor(kTile);
+    auto dock_layout = Box(dock, false, 4, {1, 3, 1, 3});
+    AddButton(dock, "▤", [this] {
+      archive_visible_ = !archive_visible_;
+      RefreshSidebar();
+    }, kInk, archive_visible_ ? kSelected : 0, 31, true, 32, "Toggle archive");
+    auto spaces = AddMenuButton(dock, session_.space + "  ⌄", "Switch Space",
+                                [this](CefRefPtr<CefButton> anchor) {
+      MenuOptions options;
+      for (const auto& space : session_.spaces)
+        options.emplace_back(space, [this, space] { SwitchSpace(space); });
+      ShowMenu(anchor, std::move(options));
+    }, 0);
+    dock_layout->SetFlexForView(spaces, 1);
+    AddButton(dock, "+", [this] { OpenCommand(CommandMode::Space); },
+              kInk, 0, 31, true, 30, "Create a Space");
+    sidebar_->AddChildView(dock);
     window_->Layout();
+  }
+
+  void BuildCommand() {
+    auto panel = CefPanel::CreatePanel(nullptr);
+    panel->SetBackgroundColor(kCommand);
+    auto layout = Box(panel, true, 4, {8, 10, 8, 10});
+    command_input_ = CefTextfield::CreateTextfield(new CommandEntry(
+        [this](int key) { return CommandKey(key); },
+        [this] {
+          if (command_input_->GetText().ToString() == command_query_) return;
+          command_selection_ = 0;
+          RefreshCommand();
+        }));
+    command_input_->SetFontList("sans-serif, 16px");
+    command_input_->SetBackgroundColor(kCommand);
+    command_input_->SetAccessibleName("Cra command bar");
+    panel->AddChildView(command_input_);
+    command_results_ = CefPanel::CreatePanel(nullptr);
+    Box(command_results_, true, 2);
+    panel->AddChildView(command_results_);
+    layout->SetFlexForView(command_results_, 1);
+    command_overlay_ = window_->AddOverlayView(panel, CEF_DOCKING_MODE_CUSTOM, true);
+  }
+
+  void OpenCommand(CommandMode mode, int tab = 0) {
+    command_mode_ = mode;
+    command_tab_ = tab;
+    command_selection_ = 0;
+    const char* placeholder = "Search or Enter URL…";
+    std::string input;
+    if (mode == CommandMode::Space) placeholder = "Name your new Space…";
+    if (mode == CommandMode::Folder) {
+      placeholder = "Enter a folder name…";
+      if (const auto* item = session_.Find(tab)) input = item->folder;
+    }
+    if (mode == CommandMode::Address) {
+      if (auto page = Active()) input = page->GetMainFrame()->GetURL();
+      if (input == "about:blank") input.clear();
+    }
+    command_input_->SetPlaceholderText(placeholder);
+    command_input_->SetText(input);
+    command_overlay_->SetVisible(true);
+    RefreshCommand();
+    command_input_->RequestFocus();
+    command_input_->SelectAll(false);
+  }
+
+  void RefreshCommand() {
+    if (!command_overlay_->IsVisible()) return;
+    command_results_->RemoveAllChildViews();
+    commands_.clear();
+    command_query_ = command_input_->GetText().ToString();
+    const auto& input = command_query_;
+    if (command_mode_ == CommandMode::Space || command_mode_ == CommandMode::Folder) {
+      commands_.emplace_back(command_mode_ == CommandMode::Space ? "Create Space" : "Move tab",
+                             [this, input] { Submit(input); });
+    } else {
+      if (!input.empty())
+        commands_.emplace_back("↵  Open or search  ·  " + input,
+                               [this, input] { Submit(input); });
+      const auto query = Lowercase(input);
+      auto append_matches = [&](const std::vector<Tab>& tabs, bool archived) {
+        for (auto it = tabs.rbegin(); it != tabs.rend() && commands_.size() < 6; ++it) {
+          if (it->url == "about:blank" || it->id == session_.selected) continue;
+          if (!query.empty() && Lowercase(Label(*it)).find(query) == std::string::npos &&
+              Lowercase(it->url).find(query) == std::string::npos) continue;
+          const auto prefix = archived ? "Restore  ·  " : "Switch to  ·  ";
+          commands_.emplace_back(prefix + Label(*it), [this, archived, id = it->id] {
+            if (archived) RestoreArchived(id);
+            else SelectTab(id);
+          });
+        }
+      };
+      append_matches(session_.tabs, false);
+      if (!query.empty()) append_matches(session_.archived, true);
+    }
+
+    for (size_t i = 0; i < commands_.size(); ++i)
+      AddButton(command_results_, commands_[i].first, [this, i] { RunCommand(i); },
+                kToolbarInk, i == command_selection_ ? kCommandSelection : 0, 32);
+    PositionCommand();
+  }
+
+  bool CommandKey(int key) {
+    if (key == 27) {
+      command_overlay_->SetVisible(false);
+      if (auto page = Active()) page->GetHost()->SetFocus(true);
+      return true;
+    }
+    if (key == 13) {
+      if (commands_.empty()) Submit(command_input_->GetText().ToString());
+      else RunCommand(command_selection_);
+      return true;
+    }
+    if (key != 38 && key != 40) return false;
+    if (commands_.empty()) return true;
+    if (key == 38 && command_selection_ > 0) --command_selection_;
+    if (key == 40 && command_selection_ + 1 < commands_.size()) ++command_selection_;
+    RefreshCommand();
+    return true;
+  }
+
+  void RunCommand(size_t index) {
+    if (index >= commands_.size()) return;
+    auto command = commands_[index].second;
+    command_overlay_->SetVisible(false);
+    command();
+  }
+
+  void Submit(const std::string& input) {
+    command_overlay_->SetVisible(false);
+    if (command_mode_ == CommandMode::Space) {
+      if (!input.empty()) SwitchSpace(input);
+    } else if (command_mode_ == CommandMode::Folder) {
+      if (auto* tab = session_.Find(command_tab_); tab && !input.empty()) {
+        tab->folder = input;
+        tab->favorite = false;
+        if (tab->home.empty()) tab->home = tab->url;
+        RefreshSidebar();
+        Persist();
+      }
+    } else if (command_mode_ == CommandMode::NewTab && !input.starts_with("/")) {
+      const auto* tab = session_.Find(session_.selected);
+      if (!tab || tab->url != "about:blank" || !tab->home.empty() || secondary_focused_)
+        AddTab(Resolve(input));
+      else Navigate(input);
+    } else if (!input.empty()) {
+      Navigate(input);
+    }
+    if (auto page = Active()) page->GetHost()->SetFocus(true);
   }
 
   void Navigate(std::string input) {
@@ -508,16 +1008,7 @@ class Shell : public CefClient,
           MakeView("about:blank", context), "Cra Private Window", true));
       return;
     } else if (input.starts_with("/split ") && input.size() > 7) {
-      const auto url = Resolve(input.substr(7));
-      if (secondary_) {
-        if (auto page = secondary_->GetBrowser()) page->GetMainFrame()->LoadURL(url);
-      } else {
-        secondary_ = MakeView(url, Context());
-        right_->AddChildView(secondary_);
-      }
-      right_->SetVisible(true);
-      window_->Layout();
-      secondary_->RequestFocus();
+      OpenSplit(Resolve(input.substr(7)));
       return;
     } else if (auto page = Active()) {
       page->GetMainFrame()->LoadURL(Resolve(std::move(input)));
@@ -532,12 +1023,18 @@ class Shell : public CefClient,
       return;
     }
     const int id = session_.selected;
+    ArchiveTab(id);
+  }
+
+  void ArchiveTab(int id) {
     session_.Remove(id, true);
     DiscardTabView(id);
     ShowSelected();
   }
 
   void DiscardTabView(int id) {
+    favicon_urls_.erase(id);
+    favicons_.erase(id);
     const auto found = views_.find(id);
     if (found == views_.end()) return;
     auto page = found->second->GetBrowser();
@@ -561,8 +1058,10 @@ class Shell : public CefClient,
     ShowSelected();
   }
 
-  void PinSelected() {
-    if (auto* tab = session_.Find(session_.selected)) {
+  void PinSelected() { TogglePin(session_.selected); }
+
+  void TogglePin(int id) {
+    if (auto* tab = session_.Find(id)) {
       if (tab->home.empty()) tab->home = tab->url;
       else {
         tab->home.clear();
@@ -572,6 +1071,27 @@ class Shell : public CefClient,
       RefreshSidebar();
       Persist();
     }
+  }
+
+  void ToggleFavorite(int id) {
+    if (auto* tab = session_.Find(id)) {
+      tab->favorite = !tab->favorite;
+      if (tab->favorite && tab->home.empty()) tab->home = tab->url;
+      RefreshSidebar();
+      Persist();
+    }
+  }
+
+  void OpenSplit(const std::string& url) {
+    if (secondary_) {
+      if (auto page = secondary_->GetBrowser()) page->GetMainFrame()->LoadURL(url);
+    } else {
+      secondary_ = MakeView(url, Context());
+      right_->AddChildView(secondary_);
+    }
+    right_->SetVisible(true);
+    window_->Layout();
+    secondary_->RequestFocus();
   }
 
   void ToggleSplit() {
@@ -597,7 +1117,20 @@ class Shell : public CefClient,
   CefRefPtr<CefPanel> sidebar_;
   CefRefPtr<CefPanel> left_;
   CefRefPtr<CefPanel> right_;
-  CefRefPtr<CefTextfield> address_;
+  CefRefPtr<CefLabelButton> location_;
+  CefRefPtr<CefLabelButton> back_;
+  CefRefPtr<CefLabelButton> forward_;
+  CefRefPtr<CefTextfield> command_input_;
+  CefRefPtr<CefPanel> command_results_;
+  CefRefPtr<CefOverlayController> command_overlay_;
+  CommandMode command_mode_ = CommandMode::Address;
+  int command_tab_ = 0;
+  size_t command_selection_ = 0;
+  MenuOptions commands_;
+  std::string command_query_;
+  std::map<int, std::string> favicon_urls_;
+  std::map<int, CefRefPtr<CefImage>> favicons_;
+  std::set<std::pair<std::string, std::string>> collapsed_folders_;
   CefRefPtr<CefBrowserView> secondary_;
   std::map<int, CefRefPtr<CefBrowserView>> views_;
   std::map<int, CefRefPtr<CefBrowser>> browsers_;
@@ -609,6 +1142,10 @@ MainWindow::MainWindow(CefRefPtr<Shell> shell) : shell_(shell) {}
 void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) { shell_->Build(window); }
 bool MainWindow::CanClose(CefRefPtr<CefWindow>) { return shell_->CanClose(); }
 void MainWindow::OnWindowDestroyed(CefRefPtr<CefWindow>) { shell_->Destroyed(); }
+void MainWindow::OnWindowBoundsChanged(CefRefPtr<CefWindow>, const CefRect&) {
+  shell_->PositionCommand();
+}
+
 bool MainWindow::OnAccelerator(CefRefPtr<CefWindow>, int command) {
   return shell_->Accelerate(command);
 }

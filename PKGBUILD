@@ -1,5 +1,5 @@
 pkgname=cra-browser-cef
-pkgver=0.2.1
+pkgver=0.2.2
 pkgrel=1
 pkgdesc='Cra Browser Linux Chromium preview'
 arch=('x86_64')

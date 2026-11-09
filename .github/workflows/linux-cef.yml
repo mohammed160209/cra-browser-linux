@@ -16,7 +16,7 @@ jobs:
       - name: Install build and display dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libx11-dev libgtk-3-0t64 xvfb xauth zstd
+          sudo apt-get install -y cmake ninja-build libx11-dev libgtk-3-0t64 xvfb xauth zstd xdotool imagemagick
       - name: Fetch the pinned CEF binary
         shell: bash
         run: |
@@ -41,6 +41,18 @@ jobs:
           xvfb-run -a timeout 60 ./stage/lib/cra-browser-cef/cra-browser \
             --no-sandbox --disable-gpu --disable-background-networking \
             --disable-component-update --cra-smoke-test
+      - name: Exercise the native command bar
+        if: github.event_name == 'pull_request'
+        run: |
+          xvfb-run -a -s "-screen 0 1280x900x24" \
+            bash tests/chrome-ui.sh ./stage/lib/cra-browser-cef/cra-browser chrome-ui
+      - name: Upload native UI screenshots
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cra-native-ui
+          path: chrome-ui/
+          retention-days: 7
       - name: Package for CachyOS
         if: github.event_name == 'pull_request'
         shell: bash

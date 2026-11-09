@@ -4,7 +4,7 @@ This preview uses C++ and Chromium Embedded Framework with CEF Views. It follows
 
 ## Install on CachyOS or Arch Linux
 
-Install the x86-64 package with `sudo pacman -U ./cra-browser-cef-0.2.1-1-x86_64.pkg.tar.zst`, then launch **Cra Browser (Chromium Preview)** or run `cra-browser-cef`. The package has a separate desktop entry and stores its data under `$XDG_DATA_HOME/cra-browser-cef` (normally `~/.local/share/cra-browser-cef`).
+Install the x86-64 package with `sudo pacman -U ./cra-browser-cef-0.2.2-1-x86_64.pkg.tar.zst`, then launch **Cra Browser (Chromium Preview)** or run `cra-browser-cef`. The package has a separate desktop entry and stores its data under `$XDG_DATA_HOME/cra-browser-cef` (normally `~/.local/share/cra-browser-cef`).
 
 To build from this branch on Arch, install `base-devel`, `git`, `cmake`, and `ninja`, then run `makepkg -si`. The package recipe verifies the CEF archive against its pinned SHA-256.
 
@@ -20,9 +20,9 @@ DESTDIR="$PWD/stage" cmake --install build
 
 ## Preview workflows
 
-- Ctrl+T creates a tab. Ctrl+L edits the current address. Ctrl+W archives the active tab or closes the focused secondary pane.
+- Ctrl+T opens the command bar for a new tab. Ctrl+L opens it with the current address selected. Type to search open tabs or the archive, then use Up/Down and Enter to switch or restore. Ctrl+W archives the active tab or closes the focused secondary pane.
 - Ctrl+D pins or unpins the active tab. `/home` navigates to the pinned address.
-- `/space Work` opens or creates a Space. `/folder Projects` labels and pins the active tab. `/favorite` marks it as a favorite.
+- Use the Space dock to switch or create a Space. A tab’s ··· menu pins it, adds it to the Favorites tiles, moves it to a folder, or opens it in Split View.
 - Ctrl+E toggles the second pane. `/split example.org` navigates it. `/little` opens the current URL in a small window.
 - Ctrl+Shift+T reopens the last archived tab in its original Space and preserves its pinned or favorite state. Ctrl+Shift+K archives Today tabs in the current Space.
 - The sidebar can open an archived tab. Spaces have separate Chromium cookie stores. `/private` opens an ephemeral window. Chromium cookies and Cra's tab list survive restarts.
