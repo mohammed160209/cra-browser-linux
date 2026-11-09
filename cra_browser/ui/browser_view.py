@@ -43,11 +43,31 @@ class BrowserView(Gtk.Box):
         settings.set_javascript_can_open_windows_automatically(True)
         settings.set_hardware_acceleration_policy(WebKit.HardwareAccelerationPolicy.ALWAYS)
 
-        if user_content_manager:
-            self.web_view = WebKit.WebView.new_with_user_content_manager(user_content_manager)
-            self.web_view.set_settings(settings)
-        else:
-            self.web_view = WebKit.WebView.new_with_settings(settings)
+        # In WebKitGTK 6.0, new_with_user_content_manager and new_with_settings are removed.
+        # Construct properties are passed directly via GObject keyword arguments.
+        webview_kwargs = {}
+        if user_content_manager is not None:
+            webview_kwargs["user_content_manager"] = user_content_manager
+        if settings is not None:
+            webview_kwargs["settings"] = settings
+
+        try:
+            self.web_view = WebKit.WebView(**webview_kwargs)
+        except (TypeError, AttributeError):
+            if hasattr(WebKit.WebView, "new_with_user_content_manager") and user_content_manager is not None:
+                self.web_view = WebKit.WebView.new_with_user_content_manager(user_content_manager)
+            elif hasattr(WebKit.WebView, "new_with_settings") and settings is not None:
+                self.web_view = WebKit.WebView.new_with_settings(settings)
+            elif hasattr(WebKit.WebView, "new"):
+                self.web_view = WebKit.WebView.new()
+            else:
+                self.web_view = WebKit.WebView()
+
+        if settings is not None:
+            try:
+                self.web_view.set_settings(settings)
+            except Exception:
+                pass
 
         self.web_view.set_vexpand(True)
         self.web_view.set_hexpand(True)
@@ -96,22 +116,36 @@ class BrowserView(Gtk.Box):
         self.web_view.stop_loading()
 
     def toggle_inspector(self):
-        inspector = self.web_view.get_inspector()
-        if inspector.is_attached():
-            inspector.close()
-        else:
-            inspector.show()
+        try:
+            inspector = self.web_view.get_inspector()
+            if hasattr(inspector, "is_attached") and inspector.is_attached():
+                inspector.close()
+            elif hasattr(inspector, "is_open") and inspector.is_open():
+                inspector.close()
+            else:
+                inspector.show()
+        except Exception:
+            pass
 
     def zoom_in(self):
-        level = self.web_view.get_zoom_level()
-        self.web_view.set_zoom_level(min(level + 0.1, 3.0))
+        try:
+            level = float(self.web_view.get_zoom_level())
+            self.web_view.set_zoom_level(min(level + 0.1, 3.0))
+        except Exception:
+            pass
 
     def zoom_out(self):
-        level = self.web_view.get_zoom_level()
-        self.web_view.set_zoom_level(max(level - 0.1, 0.5))
+        try:
+            level = float(self.web_view.get_zoom_level())
+            self.web_view.set_zoom_level(max(level - 0.1, 0.5))
+        except Exception:
+            pass
 
     def zoom_reset(self):
-        self.web_view.set_zoom_level(1.0)
+        try:
+            self.web_view.set_zoom_level(1.0)
+        except Exception:
+            pass
 
     @property
     def current_url(self) -> str:

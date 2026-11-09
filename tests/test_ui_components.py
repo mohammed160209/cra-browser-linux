@@ -155,3 +155,18 @@ def test_cra_window_initialization_and_actions():
 
     window._toggle_split_view()
     assert not window.split_view.is_split
+
+
+def test_browser_view_initialization():
+    ucm = MagicMock()
+    view = BrowserView(
+        url="https://archlinux.org",
+        user_content_manager=ucm,
+    )
+    assert view.web_view is not None
+    view.load_url("https://cachyos.org")
+    view.toggle_inspector()
+    view.zoom_in()
+    view.zoom_out()
+    view.zoom_reset()
+    assert view.current_url == "https://duckduckgo.com"

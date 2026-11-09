@@ -27,6 +27,8 @@ except ImportError:
             self.toggle_inspector = MagicMock()
             self.get_uri = MagicMock(return_value="https://duckduckgo.com")
             self.get_title = MagicMock(return_value="DuckDuckGo")
+            self.get_zoom_level = MagicMock(return_value=1.0)
+            self.set_zoom_level = MagicMock()
             self.get_orientation = MagicMock(return_value=0)
             self.set_orientation = MagicMock()
             self.get_text = MagicMock(return_value="")
