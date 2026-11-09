@@ -272,6 +272,16 @@ class ThemeStyler:
         .cra-unhide-btn:hover {{
             background: rgba(50, 50, 50, 0.95);
         }}
+
+        paned > separator {{
+            background: rgba(0, 0, 0, 0.15);
+            min-width: 2px;
+            transition: background 150ms ease;
+        }}
+
+        paned > separator:hover {{
+            background: #3584E4;
+        }}
         """
 
         try:

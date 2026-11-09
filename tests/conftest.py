@@ -69,6 +69,12 @@ except ImportError:
         def get_visible(self):
             return self._visible
 
+        def set_position(self, pos):
+            self._position = pos
+
+        def get_position(self):
+            return getattr(self, "_position", 260)
+
         def add_css_class(self, cls):
             self._classes.add(cls)
 

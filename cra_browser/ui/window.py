@@ -8,7 +8,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("WebKit", "6.0")
-from gi.repository import Gtk, Gdk, Adw, WebKit
+from gi.repository import Gtk, Gdk, Adw, WebKit, GLib
 
 from ..model.sidebar import SidebarDocument, SidebarItem
 from ..model.space import Space
@@ -82,9 +82,9 @@ class CraWindow(Adw.ApplicationWindow):
         self.overlay = Gtk.Overlay()
         self.set_content(self.overlay)
 
-        # Base layout: Sidebar + Web Workspace
-        self.base_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.overlay.set_child(self.base_box)
+        # Base layout: Draggable Resizable Sidebar Divider (Gtk.Paned) + Web Workspace
+        self.sidebar_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.overlay.set_child(self.sidebar_paned)
 
         # 1. Sidebar
         self.sidebar = Sidebar(
@@ -111,13 +111,24 @@ class CraWindow(Adw.ApplicationWindow):
             on_edit_space=self.on_edit_space,
             on_delete_space=self.on_delete_space,
         )
-        self.base_box.append(self.sidebar)
+        self.sidebar_paned.set_start_child(self.sidebar)
+        self.sidebar_paned.set_resize_start_child(False)
+        self.sidebar_paned.set_shrink_start_child(False)
 
         # 2. Web Workspace Container
         self.workspace_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.workspace_box.set_hexpand(True)
         self.workspace_box.set_vexpand(True)
-        self.base_box.append(self.workspace_box)
+        self.workspace_box.set_size_request(300, -1)
+        self.sidebar_paned.set_end_child(self.workspace_box)
+        self.sidebar_paned.set_resize_end_child(True)
+        self.sidebar_paned.set_shrink_end_child(False)
+
+        saved_sidebar_width = int(self.settings.get("sidebar_width", 260))
+        self.sidebar_paned.set_position(max(180, min(saved_sidebar_width, 500)))
+
+        self._save_sidebar_width_timeout_id = 0
+        self.sidebar_paned.connect("notify::position", self._on_sidebar_paned_position_changed)
 
         # Split view placeholder
         self.split_view: Optional[SplitView] = None
@@ -412,7 +423,8 @@ class CraWindow(Adw.ApplicationWindow):
 
     def on_open_settings(self):
         dialog = PreferencesDialog(self.settings, on_change=lambda s: Storage.save_settings(s))
-        dialog.present(self)
+        dialog.set_transient_for(self)
+        dialog.present()
 
     def _get_active_view(self) -> Optional[BrowserView]:
         if self.split_view and self.split_view.is_split:
@@ -440,6 +452,26 @@ class CraWindow(Adw.ApplicationWindow):
         is_visible = self.sidebar.get_visible()
         self.sidebar.set_visible(not is_visible)
         self.unhide_btn.set_visible(is_visible)
+        if not is_visible:
+            saved_width = int(self.settings.get("sidebar_width", 260))
+            self.sidebar_paned.set_position(max(180, min(saved_width, 500)))
+
+    def _on_sidebar_paned_position_changed(self, paned, _pspec):
+        if not self.sidebar.get_visible():
+            return
+        pos = paned.get_position()
+        if 160 <= pos <= 600:
+            self.settings["sidebar_width"] = pos
+            if self._save_sidebar_width_timeout_id:
+                GLib.source_remove(self._save_sidebar_width_timeout_id)
+            self._save_sidebar_width_timeout_id = GLib.timeout_add(
+                400, self._save_sidebar_width_debounced
+            )
+
+    def _save_sidebar_width_debounced(self):
+        self._save_sidebar_width_timeout_id = 0
+        Storage.save_settings(self.settings)
+        return False
 
     def on_command_navigate(self, url: str):
         view = self._get_active_view()

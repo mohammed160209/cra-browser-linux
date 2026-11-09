@@ -63,7 +63,7 @@ class PreferencesDialog(Adw.PreferencesWindow):
 
         # Tabs & Auto-archive Group
         tabs_group = Adw.PreferencesGroup()
-        tabs_group.set_title("Tabs & Archiving")
+        tabs_group.set_title("Tabs &amp; Archiving")
         gen_page.add(tabs_group)
 
         archive_row = Adw.ComboRow()
@@ -81,7 +81,7 @@ class PreferencesDialog(Adw.PreferencesWindow):
 
         # 2. Privacy & Security Page
         priv_page = Adw.PreferencesPage()
-        priv_page.set_title("Privacy & Performance")
+        priv_page.set_title("Privacy &amp; Performance")
         priv_page.set_icon_name("security-high-symbolic")
         self.add(priv_page)
 
@@ -90,7 +90,7 @@ class PreferencesDialog(Adw.PreferencesWindow):
         priv_page.add(priv_group)
 
         adblock_row = Adw.SwitchRow()
-        adblock_row.set_title("Built-in Tracker & Ad Blocking")
+        adblock_row.set_title("Built-in Tracker &amp; Ad Blocking")
         adblock_row.set_subtitle("Compile 22,000+ domain blocklist into WebKit Content Filter")
         adblock_row.set_active(settings.get("adblock_enabled", True))
         adblock_row.connect("notify::active", self._on_adblock_changed)
@@ -116,8 +116,8 @@ class PreferencesDialog(Adw.PreferencesWindow):
         perf_group.add(hw_row)
 
         sleep_switch = Adw.SwitchRow()
-        sleep_switch.set_title("Memory Saver & Tab Sleep")
-        sleep_switch.set_subtitle("Hibernate background tabs to reduce memory & CPU usage")
+        sleep_switch.set_title("Memory Saver &amp; Tab Sleep")
+        sleep_switch.set_subtitle("Hibernate background tabs to reduce memory &amp; CPU usage")
         sleep_switch.set_active(settings.get("tab_sleep_enabled", True))
         sleep_switch.connect("notify::active", self._on_tab_sleep_enabled_changed)
         perf_group.add(sleep_switch)

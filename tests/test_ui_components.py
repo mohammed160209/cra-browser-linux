@@ -12,6 +12,7 @@ from cra_browser.ui.little_window import LittleWindow
 from cra_browser.ui.preferences_dialog import PreferencesDialog
 from cra_browser.ui.space_editor import SpaceEditorDialog
 from cra_browser.ui.theme_styler import ThemeStyler
+from gi.repository import Gtk
 from unittest.mock import MagicMock
 
 
@@ -138,7 +139,14 @@ def test_cra_window_initialization_and_actions():
 
     window = CraWindow(app=app, doc=doc, settings=settings)
     assert window.active_tab_id is not None
-    assert window.sidebar.get_visible()
+    # Sidebar Paned divider
+    assert isinstance(window.sidebar_paned, Gtk.Paned)
+    assert window.sidebar_paned.get_position() >= 180
+
+    # Resizing paned divider updates settings
+    window.sidebar_paned.set_position(310)
+    window._on_sidebar_paned_position_changed(window.sidebar_paned, None)
+    assert window.settings["sidebar_width"] == 310
 
     # Toggle sidebar
     window.on_toggle_sidebar()
@@ -155,6 +163,9 @@ def test_cra_window_initialization_and_actions():
 
     window._toggle_split_view()
     assert not window.split_view.is_split
+
+    # Preferences settings dialog open (must not raise TypeError on present)
+    window.on_open_settings()
 
 
 def test_browser_view_initialization():

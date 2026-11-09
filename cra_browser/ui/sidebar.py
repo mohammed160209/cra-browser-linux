@@ -66,7 +66,7 @@ class Sidebar(Gtk.Box):
         self.on_edit_space = on_edit_space
         self.on_delete_space = on_delete_space
 
-        self.set_size_request(260, -1)
+        self.set_size_request(180, -1)
         self.add_css_class("cra-sidebar")
 
         # 1. Top Navigation Controls
