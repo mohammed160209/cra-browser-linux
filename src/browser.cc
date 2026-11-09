@@ -77,7 +77,6 @@ std::string Lowercase(std::string value) {
 }
 
 void ApplyChromeTheme(CefRefPtr<CefWindow> window) {
-  window->SetThemeColor(CEF_ColorPrimaryBackground, kFrame);
   window->SetThemeColor(CEF_ColorFrameActive, kFrame);
   window->SetThemeColor(CEF_ColorFrameInactive, kFrame);
   window->SetThemeColor(CEF_ColorTextfieldBackground, kCommand);
@@ -104,6 +103,28 @@ class PaintedView : public Delegate {
 CefRefPtr<CefPanel> Panel(cef_color_t color, CefSize size = {}) {
   return CefPanel::CreatePanel(new PaintedView<CefPanelDelegate>(color, size));
 }
+
+class SidebarViewport : public CefViewDelegate {
+ public:
+  void OnThemeChanged(CefRefPtr<CefView> view) override {
+    view->SetBackgroundColor(kSidebar);
+  }
+
+  void OnLayoutChanged(CefRefPtr<CefView> view, const CefRect& bounds) override {
+    const auto scroll = view->AsScrollView();
+    const auto content = scroll->GetContentView();
+    if (!content || bounds.width <= 0 || bounds.height <= 0) return;
+    const int content_height = content->GetPreferredSize().height;
+    const int scrollbar = content_height > bounds.height
+        ? scroll->GetVerticalScrollbarWidth() : 0;
+    const CefSize size(std::max(1, bounds.width - scrollbar),
+                       std::max(bounds.height, content_height));
+    if (content->GetSize() != size) content->SetSize(size);
+  }
+
+ private:
+  IMPLEMENT_REFCOUNTING(SidebarViewport);
+};
 
 class UiTask : public CefTask {
  public:
@@ -160,21 +181,25 @@ class Entry : public CefTextfieldDelegate {
 
 class ViewButton : public CefButtonDelegate {
  public:
-  explicit ViewButton(std::function<void(CefRefPtr<CefButton>)> action)
-      : action_(std::move(action)) {}
+  ViewButton(std::function<void(CefRefPtr<CefButton>)> action, cef_color_t background)
+      : action_(std::move(action)), background_(background) {}
   void OnButtonPressed(CefRefPtr<CefButton> button) override {
     auto action = action_;
     action(button);
   }
+  void OnThemeChanged(CefRefPtr<CefView> view) override { view->SetBackgroundColor(background_); }
  private:
   const std::function<void(CefRefPtr<CefButton>)> action_;
+  const cef_color_t background_;
   IMPLEMENT_REFCOUNTING(ViewButton);
 };
 
 CefRefPtr<CefLabelButton> AddMenuButton(
     CefRefPtr<CefPanel> parent, const std::string& title, const std::string& name,
-    std::function<void(CefRefPtr<CefButton>)> action, int width = 28) {
-  auto button = CefLabelButton::CreateLabelButton(new ViewButton(std::move(action)), title);
+    std::function<void(CefRefPtr<CefButton>)> action, int width = 28,
+    cef_color_t background = kSidebar) {
+  auto button = CefLabelButton::CreateLabelButton(new ViewButton(std::move(action), background),
+                                                  title);
   button->SetFontList("sans-serif, 13px");
   button->SetEnabledTextColors(kInk);
   button->SetMinimumSize({width, 30});
@@ -236,7 +261,7 @@ CefRefPtr<CefBoxLayout> Box(CefRefPtr<CefPanel> panel, bool vertical, int gap = 
 CefRefPtr<CefLabelButton> AddButton(
     CefRefPtr<CefPanel> parent, const std::string& text,
     std::function<void()> action, cef_color_t foreground = kInk,
-    cef_color_t background = 0, int height = 30, bool center = false,
+    cef_color_t background = kSidebar, int height = 30, bool center = false,
     int width = 0, std::string_view tooltip = {}, bool bold = false) {
   auto button = CefLabelButton::CreateLabelButton(new Button(std::move(action), background), text);
   button->SetFontList(bold ? "sans-serif, Bold 13px" : "sans-serif, 13px");
@@ -256,7 +281,7 @@ CefRefPtr<CefLabelButton> AddButton(
 
 CefRefPtr<CefLabelButton> Caption(CefRefPtr<CefPanel> parent, const std::string& text,
                                   cef_color_t foreground = kMuted) {
-  auto label = AddButton(parent, text, [] {}, foreground, 0, 24, false, 0, {}, true);
+  auto label = AddButton(parent, text, [] {}, foreground, kSidebar, 24, false, 0, {}, true);
   label->SetEnabled(false);
   label->SetTextColor(CEF_BUTTON_STATE_DISABLED, foreground);
   return label;
@@ -415,19 +440,21 @@ class Shell : public CefClient,
     auto bar = Box(toolbar, false, 3, {2, 6, 2, 6});
     workspace->AddChildView(toolbar);
     AddButton(toolbar, "◫", [this] { Accelerate('S'); },
-              kToolbarInk, 0, 29, true, 32, "Toggle sidebar");
+              kToolbarInk, kToolbar, 29, true, 32, "Toggle sidebar");
     back_ = AddButton(toolbar, "←", [this] { if (auto page = Active()) page->GoBack(); },
-                      kToolbarInk, 0, 29, true, 30, "Back");
+                      kToolbarInk, kToolbar, 29, true, 30, "Back");
     forward_ = AddButton(toolbar, "→", [this] { if (auto page = Active()) page->GoForward(); },
-                         kToolbarInk, 0, 29, true, 30, "Forward");
+                         kToolbarInk, kToolbar, 29, true, 30, "Forward");
     AddButton(toolbar, "↻", [this] { if (auto page = Active()) page->Reload(); },
-              kToolbarInk, 0, 29, true, 30, "Reload");
+              kToolbarInk, kToolbar, 29, true, 30, "Reload");
     location_ = AddButton(toolbar, "Search or Enter URL…",
                           [this] { OpenCommand(CommandMode::Address); },
-                          kToolbarInk, 0, 29, true, 0, "Open command bar");
+                          kToolbarInk, kToolbar, 29, true, 0, "Open command bar");
     bar->SetFlexForView(location_, 1);
+    back_->SetTextColor(CEF_BUTTON_STATE_DISABLED, 0xffabaee0);
+    forward_->SetTextColor(CEF_BUTTON_STATE_DISABLED, 0xffabaee0);
     AddButton(toolbar, "◧", [this] { ToggleSplit(); },
-              kToolbarInk, 0, 29, true, 32, "Toggle Split View");
+              kToolbarInk, kToolbar, 29, true, 32, "Toggle Split View");
 
     auto panes = CefPanel::CreatePanel(nullptr);
     auto split = Box(panes, false, 4);
@@ -730,15 +757,16 @@ class Shell : public CefClient,
     auto button = AddButton(row, icon == favicons_.end() ? "◦  " + label : label, [this, id = tab.id] {
       if (archive_visible_) RestoreArchived(id);
       else SelectTab(id);
-    }, kInk, 0, 31, false, 0, label);
+    }, kInk, active ? kSelected : kSidebar, 31, false, 0, label);
     if (icon != favicons_.end()) button->SetImage(CEF_BUTTON_STATE_NORMAL, icon->second);
     layout->SetFlexForView(button, 1);
     if (!archive_visible_) {
       if (active)
         AddButton(row, "×", [this, id = tab.id] { ArchiveTab(id); },
-                  kMuted, 0, 30, true, 24, "Close tab");
+                  kMuted, kSelected, 30, true, 24, "Close tab");
       AddMenuButton(row, "···", "Tab actions",
-                    [this, id = tab.id](CefRefPtr<CefButton> anchor) { TabMenu(anchor, id); });
+                    [this, id = tab.id](CefRefPtr<CefButton> anchor) { TabMenu(anchor, id); },
+                    28, active ? kSelected : kSidebar);
     }
     list->AddChildView(row);
   }
@@ -763,7 +791,7 @@ class Shell : public CefClient,
     });
     sidebar_->AddChildView(header);
 
-    auto scroll = CefScrollView::CreateScrollView(new PaintedView<CefViewDelegate>(kSidebar));
+    auto scroll = CefScrollView::CreateScrollView(new SidebarViewport);
     auto list = Panel(kSidebar);
     Box(list, true, 3);
 
@@ -827,7 +855,7 @@ class Shell : public CefClient,
       auto today_layout = Box(today, false);
       auto today_caption = Caption(today, "Today");
       today_layout->SetFlexForView(today_caption, 1);
-      AddButton(today, "Clear", [this] { ClearToday(); }, kMuted, 0, 24,
+      AddButton(today, "Clear", [this] { ClearToday(); }, kMuted, kSidebar, 24,
                 true, 47, "Clear Today tabs");
       list->AddChildView(today);
       for (const auto& tab : session_.tabs)
@@ -846,17 +874,17 @@ class Shell : public CefClient,
     AddButton(dock, "▤", [this] {
       archive_visible_ = !archive_visible_;
       RefreshSidebar();
-    }, kInk, archive_visible_ ? kSelected : 0, 31, true, 32, "Toggle archive");
+    }, kInk, archive_visible_ ? kSelected : kTile, 31, true, 32, "Toggle archive");
     auto spaces = AddMenuButton(dock, session_.space + "  ⌄", "Switch Space",
                                 [this](CefRefPtr<CefButton> anchor) {
       MenuOptions options;
       for (const auto& space : session_.spaces)
         options.emplace_back(space, [this, space] { SwitchSpace(space); });
       ShowMenu(anchor, std::move(options));
-    }, 0);
+    }, 0, kTile);
     dock_layout->SetFlexForView(spaces, 1);
     AddButton(dock, "+", [this] { OpenCommand(CommandMode::Space); },
-              kInk, 0, 31, true, 30, "Create a Space");
+              kInk, kTile, 31, true, 30, "Create a Space");
     sidebar_->AddChildView(dock);
     window_->Layout();
   }
@@ -937,7 +965,7 @@ class Shell : public CefClient,
 
     for (size_t i = 0; i < commands_.size(); ++i)
       AddButton(command_results_, commands_[i].first, [this, i] { RunCommand(i); },
-                kToolbarInk, i == command_selection_ ? kCommandSelection : 0, 32);
+                kToolbarInk, i == command_selection_ ? kCommandSelection : kCommand, 32);
     PositionCommand();
   }
 
