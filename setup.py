@@ -22,7 +22,6 @@ setup(
         "Development Status :: 4 - Beta",
         "Environment :: X11 Applications :: GTK",
         "Intended Audience :: End Users/Desktop",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
