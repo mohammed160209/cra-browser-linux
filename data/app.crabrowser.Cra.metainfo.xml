@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>app.crabrowser.Cra</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Cra Browser</name>
+  <summary>A native Linux browser with a sidebar instead of a tab strip</summary>
+  <description>
+    <p>
+      Cra Browser Linux is a fast, native port of the Cra browser built with GTK4, Libadwaita, and WebKitGTK 6.0.
+      It brings Arc-style workflows to Linux: Spaces, Pinned tabs, Today tabs with auto-archiving, Favorites grid,
+      Split View, Little Windows, and a keyboard-driven Command Bar.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/icesaviour02-droid/cra-browser-linux</url>
+  <releases>
+    <release version="0.1.0" date="2026-11-09"/>
+  </releases>
+</component>
