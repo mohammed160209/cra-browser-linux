@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Cra Browser (Chromium Preview)
+Comment=Arc-style Linux browser built on Chromium
+GenericName=Web Browser
+Exec=cra-browser-cef %U
+Icon=app.crabrowser.CraCEF
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=cra-browser

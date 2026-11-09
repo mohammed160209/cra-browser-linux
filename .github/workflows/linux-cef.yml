@@ -1,0 +1,85 @@
+name: Linux Chromium build
+
+on:
+  push:
+    branches: [chromium-cef-linux]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build and display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libx11-dev libgtk-3-0t64 xvfb xauth zstd xdotool imagemagick
+      - name: Fetch the pinned CEF binary
+        shell: bash
+        run: |
+          source PKGBUILD
+          curl --fail --location --retry 3 "${source[1]}" -o cef.tar.bz2
+          printf '%s  cef.tar.bz2\n' "${sha256sums[1]}" | sha256sum -c -
+          mkdir cef
+          tar -xf cef.tar.bz2 -C cef --strip-components=1
+      - name: Build and test
+        env:
+          CFLAGS: "-Wp,-D_FORTIFY_SOURCE=3"
+          CXXFLAGS: "-Wp,-D_FORTIFY_SOURCE=3"
+        run: |
+          cmake -S . -B build -G Ninja -DCEF_ROOT="$PWD/cef" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build -j 4
+          ctest --test-dir build --output-on-failure
+          cmake --install build --prefix "$PWD/stage"
+      - name: Launch Chromium with a local fixture
+        run: |
+          export XDG_DATA_HOME="$(mktemp -d)"
+          # The hosted runner restricts Chromium user namespaces. The fixture is local.
+          xvfb-run -a timeout 60 ./stage/lib/cra-browser-cef/cra-browser \
+            --no-sandbox --disable-gpu --disable-background-networking \
+            --disable-component-update --cra-smoke-test
+      - name: Exercise the native command bar
+        if: github.event_name == 'pull_request'
+        run: |
+          xvfb-run -a -s "-screen 0 1280x900x24" \
+            bash tests/chrome-ui.sh ./stage/lib/cra-browser-cef/cra-browser chrome-ui
+      - name: Upload native UI screenshots
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cra-native-ui
+          path: chrome-ui/
+          retention-days: 7
+      - name: Package for CachyOS
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -o pipefail
+          source PKGBUILD
+          srcdir="$PWD"
+          pkgdir="$(mktemp -d)"
+          package
+          {
+            printf 'pkgname = %s\npkgbase = %s\npkgver = %s-%s\n' "$pkgname" "$pkgname" "$pkgver" "$pkgrel"
+            printf 'pkgdesc = %s\nurl = %s\narch = %s\n' "$pkgdesc" "$url" "${arch[0]}"
+            printf 'builddate = %s\nsize = %s\npackager = GitHub Actions\n' "$(date +%s)" "$(du -sb "$pkgdir/usr" | cut -f1)"
+            printf 'license = %s\n' "${license[@]}"
+            printf 'depend = %s\n' "${depends[@]}"
+          } > "$pkgdir/.PKGINFO"
+          mkdir -p dist
+          package_file="dist/$pkgname-$pkgver-$pkgrel-${arch[0]}.pkg.tar.zst"
+          tar --format=posix --owner=0 --group=0 --numeric-owner -C "$pkgdir" -cf - .PKGINFO usr | zstd -q -T0 -8 -o "$package_file"
+          zstd -t "$package_file"
+          (cd dist && sha256sum "${package_file##*/}" > SHA256SUMS)
+      - name: Upload CachyOS installer
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cra-browser-cef-cachyos-x86_64
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
