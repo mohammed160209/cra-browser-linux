@@ -13,6 +13,7 @@ dist/
 *.egg
 .cache/
 *.tmp
+.pytest_cache/
 
 # Ignore macOS upstream clone folder
 src-cra/

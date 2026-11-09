@@ -14,11 +14,23 @@ SEARCH_ENGINES = {
     "Ecosia": "https://www.ecosia.org/search?q={}",
 }
 
+BANG_SHORTCUTS = {
+    "!g": ("Google", "https://www.google.com/search?q={}"),
+    "!ddg": ("DuckDuckGo", "https://duckduckgo.com/?q={}"),
+    "!b": ("Brave", "https://search.brave.com/search?q={}"),
+    "!k": ("Kagi", "https://kagi.com/search?q={}"),
+    "!w": ("Wikipedia", "https://en.wikipedia.org/wiki/Special:Search?search={}"),
+    "!gh": ("GitHub", "https://github.com/search?q={}"),
+    "!yt": ("YouTube", "https://www.youtube.com/results?search_query={}"),
+    "!aw": ("ArchWiki", "https://wiki.archlinux.org/index.php?search={}"),
+}
+
 TLD_REGEX = re.compile(
-    r"^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?$"
+    r"^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?(\/.*)?$",
+    re.IGNORECASE,
 )
 IP_REGEX = re.compile(r"^(https?:\/\/)?(\d{1,3}\.){3}\d{1,3}(:\d+)?(\/.*)?$")
-LOCALHOST_REGEX = re.compile(r"^(https?:\/\/)?localhost(:\d+)?(\/.*)?$")
+LOCALHOST_REGEX = re.compile(r"^(https?:\/\/)?localhost(:\d+)?(\/.*)?$", re.IGNORECASE)
 
 
 def is_url(text: str) -> bool:
@@ -28,7 +40,13 @@ def is_url(text: str) -> bool:
         return False
     if " " in text:
         return False
-    if text.startswith("http://") or text.startswith("https://") or text.startswith("file://") or text.startswith("about:"):
+    if (
+        text.startswith("http://")
+        or text.startswith("https://")
+        or text.startswith("file://")
+        or text.startswith("about:")
+        or text.startswith("chrome://")
+    ):
         return True
     if LOCALHOST_REGEX.match(text) or IP_REGEX.match(text):
         return True
@@ -42,9 +60,28 @@ def resolve_input(text: str, engine_name: str = "DuckDuckGo") -> str:
     text = text.strip()
     if not text:
         return "about:blank"
+
+    # Check bang shortcuts (e.g. "!gh arch linux", "!w rust")
+    parts = text.split(maxsplit=1)
+    if parts and parts[0].lower() in BANG_SHORTCUTS:
+        bang = parts[0].lower()
+        query = parts[1] if len(parts) > 1 else ""
+        template = BANG_SHORTCUTS[bang][1]
+        return template.format(quote_plus(query))
+
     if is_url(text):
-        if not (text.startswith("http://") or text.startswith("https://") or text.startswith("file://") or text.startswith("about:")):
+        if not (
+            text.startswith("http://")
+            or text.startswith("https://")
+            or text.startswith("file://")
+            or text.startswith("about:")
+            or text.startswith("chrome://")
+        ):
+            # Default to https
+            if text.startswith("localhost") or text.startswith("127.0.0.1"):
+                return f"http://{text}"
             return f"https://{text}"
         return text
+
     template = SEARCH_ENGINES.get(engine_name, SEARCH_ENGINES["DuckDuckGo"])
     return template.format(quote_plus(text))

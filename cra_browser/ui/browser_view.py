@@ -18,16 +18,21 @@ class BrowserView(Gtk.Box):
         on_title_changed: Optional[Callable[[str], None]] = None,
         on_url_changed: Optional[Callable[[str], None]] = None,
         on_new_tab_requested: Optional[Callable[[str], None]] = None,
+        on_nav_state_changed: Optional[Callable[[bool, bool], None]] = None,
+        on_focus_in: Optional[Callable[[BrowserView], None]] = None,
         user_content_manager: Optional[WebKit.UserContentManager] = None,
     ):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.on_title_changed = on_title_changed
         self.on_url_changed = on_url_changed
         self.on_new_tab_requested = on_new_tab_requested
+        self.on_nav_state_changed = on_nav_state_changed
+        self.on_focus_in = on_focus_in
 
         # Progress bar at the top of the web view
         self.progress_bar = Gtk.ProgressBar()
         self.progress_bar.set_visible(False)
+        self.progress_bar.add_css_class("cra-load-progress")
         self.append(self.progress_bar)
 
         # Settings
@@ -36,6 +41,7 @@ class BrowserView(Gtk.Box):
         settings.set_enable_webrtc(True)
         settings.set_enable_smooth_scrolling(True)
         settings.set_javascript_can_open_windows_automatically(True)
+        settings.set_hardware_acceleration_policy(WebKit.HardwareAccelerationPolicy.ALWAYS)
 
         if user_content_manager:
             self.web_view = WebKit.WebView.new_with_user_content_manager(user_content_manager)
@@ -47,15 +53,25 @@ class BrowserView(Gtk.Box):
         self.web_view.set_hexpand(True)
         self.append(self.web_view)
 
+        # Click gesture to detect focus in split view
+        focus_click = Gtk.GestureClick()
+        focus_click.connect("pressed", lambda *_: self._handle_focus())
+        self.add_controller(focus_click)
+
         # Signal connections
         self.web_view.connect("notify::title", self._on_title_notify)
         self.web_view.connect("notify::uri", self._on_uri_notify)
         self.web_view.connect("notify::estimated-load-progress", self._on_progress_notify)
         self.web_view.connect("notify::is-loading", self._on_loading_notify)
+        self.web_view.connect("load-changed", self._on_load_changed)
         self.web_view.connect("create", self._on_create_window)
 
         if url and url != "about:blank":
             self.load_url(url)
+
+    def _handle_focus(self):
+        if self.on_focus_in:
+            self.on_focus_in(self)
 
     def load_url(self, url: str):
         if url.startswith("about:"):
@@ -105,6 +121,14 @@ class BrowserView(Gtk.Box):
     def current_title(self) -> str:
         return self.web_view.get_title() or ""
 
+    @property
+    def can_go_back(self) -> bool:
+        return self.web_view.can_go_back()
+
+    @property
+    def can_go_forward(self) -> bool:
+        return self.web_view.can_go_forward()
+
     def _on_title_notify(self, *_):
         title = self.current_title
         if self.on_title_changed:
@@ -114,6 +138,7 @@ class BrowserView(Gtk.Box):
         uri = self.current_url
         if self.on_url_changed:
             self.on_url_changed(uri)
+        self._notify_nav_state()
 
     def _on_progress_notify(self, *_):
         progress = self.web_view.get_estimated_load_progress()
@@ -122,6 +147,14 @@ class BrowserView(Gtk.Box):
     def _on_loading_notify(self, *_):
         is_loading = self.web_view.is_loading()
         self.progress_bar.set_visible(is_loading)
+        self._notify_nav_state()
+
+    def _on_load_changed(self, web_view, load_event):
+        self._notify_nav_state()
+
+    def _notify_nav_state(self):
+        if self.on_nav_state_changed:
+            self.on_nav_state_changed(self.web_view.can_go_back(), self.web_view.can_go_forward())
 
     def _on_create_window(self, web_view, navigation_action):
         uri = navigation_action.get_request().get_uri()

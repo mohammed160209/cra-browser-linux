@@ -10,11 +10,12 @@ from ..model.sidebar import SidebarDocument, SidebarItem
 from ..model.space import Space
 from .favorites_grid import FavoritesGrid
 from .tab_row import TabRow
+from .folder_row import FolderRow
 from .space_dock import SpaceDock
 
 
 class Sidebar(Gtk.Box):
-    """Arc/Cra vertical sidebar with Favorites, Pinned tabs, Today tabs, and Space dock."""
+    """Arc/Cra vertical sidebar with Favorites, Pinned tabs, Folders, Today tabs, and Space dock."""
 
     def __init__(
         self,
@@ -31,6 +32,14 @@ class Sidebar(Gtk.Box):
         on_go_forward: Callable[[], None],
         on_reload: Callable[[], None],
         on_toggle_sidebar: Callable[[], None],
+        on_reset_home: Optional[Callable[[SidebarItem], None]] = None,
+        on_make_home: Optional[Callable[[SidebarItem], None]] = None,
+        on_rename_item: Optional[Callable[[SidebarItem, str], None]] = None,
+        on_new_tab_requested: Optional[Callable[[], None]] = None,
+        on_new_folder_requested: Optional[Callable[[Optional[str]], None]] = None,
+        on_open_split: Optional[Callable[[SidebarItem], None]] = None,
+        on_edit_space: Optional[Callable[[str], None]] = None,
+        on_delete_space: Optional[Callable[[str], None]] = None,
     ):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.doc = doc
@@ -46,11 +55,19 @@ class Sidebar(Gtk.Box):
         self.on_go_forward = on_go_forward
         self.on_reload = on_reload
         self.on_toggle_sidebar = on_toggle_sidebar
+        self.on_reset_home = on_reset_home
+        self.on_make_home = on_make_home
+        self.on_rename_item = on_rename_item
+        self.on_new_tab_requested = on_new_tab_requested
+        self.on_new_folder_requested = on_new_folder_requested
+        self.on_open_split = on_open_split
+        self.on_edit_space = on_edit_space
+        self.on_delete_space = on_delete_space
 
         self.set_size_request(260, -1)
         self.add_css_class("cra-sidebar")
 
-        # Top Navigation Controls
+        # 1. Top Navigation Controls
         self.nav_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.nav_header.set_margin_top(8)
         self.nav_header.set_margin_bottom(6)
@@ -60,18 +77,21 @@ class Sidebar(Gtk.Box):
         self.back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
         self.back_btn.add_css_class("flat")
         self.back_btn.add_css_class("cra-nav-btn")
+        self.back_btn.set_tooltip_text("Back (Alt+Left)")
         self.back_btn.connect("clicked", lambda *_: self.on_go_back())
         self.nav_header.append(self.back_btn)
 
         self.fwd_btn = Gtk.Button.new_from_icon_name("go-next-symbolic")
         self.fwd_btn.add_css_class("flat")
         self.fwd_btn.add_css_class("cra-nav-btn")
+        self.fwd_btn.set_tooltip_text("Forward (Alt+Right)")
         self.fwd_btn.connect("clicked", lambda *_: self.on_go_forward())
         self.nav_header.append(self.fwd_btn)
 
         self.reload_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
         self.reload_btn.add_css_class("flat")
         self.reload_btn.add_css_class("cra-nav-btn")
+        self.reload_btn.set_tooltip_text("Reload (Ctrl+R / F5)")
         self.reload_btn.connect("clicked", lambda *_: self.on_reload())
         self.nav_header.append(self.reload_btn)
 
@@ -82,6 +102,7 @@ class Sidebar(Gtk.Box):
         self.url_label = Gtk.Label(label="Search or enter URL…")
         self.url_label.set_ellipsize(3)
         self.url_btn.set_child(self.url_label)
+        self.url_btn.set_tooltip_text("Open Command Bar (Ctrl+T / Ctrl+L)")
         self.url_btn.connect("clicked", lambda *_: self.on_open_command_bar())
         self.nav_header.append(self.url_btn)
 
@@ -95,7 +116,7 @@ class Sidebar(Gtk.Box):
 
         self.append(self.nav_header)
 
-        # Scrolled container for Favorites + Pinned + Today
+        # 2. Scrolled container for Favorites + Pinned + Today
         self.scroll = Gtk.ScrolledWindow()
         self.scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.scroll.set_vexpand(True)
@@ -112,23 +133,39 @@ class Sidebar(Gtk.Box):
         self.favorites_grid = FavoritesGrid(
             on_select=self.on_tab_selected,
             on_remove=lambda item: self.on_tab_closed(item),
+            on_open_split=self.on_open_split,
         )
         self.content_box.append(self.favorites_grid)
 
         # Pinned Header & List
         self.pinned_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+
+        self.pinned_header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.pinned_header_box.set_margin_top(4)
+
         self.pinned_header = Gtk.Label(label="PINNED")
         self.pinned_header.set_halign(Gtk.Align.START)
+        self.pinned_header.set_hexpand(True)
         self.pinned_header.add_css_class("subtext")
-        self.pinned_header.set_margin_top(4)
-        self.pinned_box.append(self.pinned_header)
+        self.pinned_header_box.append(self.pinned_header)
+
+        # New Folder button in Pinned section
+        if self.on_new_folder_requested:
+            folder_btn = Gtk.Button.new_from_icon_name("folder-new-symbolic")
+            folder_btn.add_css_class("flat")
+            folder_btn.add_css_class("cra-nav-btn")
+            folder_btn.set_tooltip_text("New Folder")
+            folder_btn.connect("clicked", lambda *_: self.on_new_folder_requested(None))
+            self.pinned_header_box.append(folder_btn)
+
+        self.pinned_box.append(self.pinned_header_box)
 
         self.pinned_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.pinned_box.append(self.pinned_list)
         self.content_box.append(self.pinned_box)
 
-        # Today Header with Clear button
-        self.today_header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        # Today Header with "+" New Tab and "Clear" button
+        self.today_header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.today_header_box.set_margin_top(6)
 
         today_lbl = Gtk.Label(label="TODAY")
@@ -136,6 +173,15 @@ class Sidebar(Gtk.Box):
         today_lbl.set_hexpand(True)
         today_lbl.add_css_class("subtext")
         self.today_header_box.append(today_lbl)
+
+        # "+" New Tab button in Today section
+        if self.on_new_tab_requested:
+            new_tab_btn = Gtk.Button.new_from_icon_name("list-add-symbolic")
+            new_tab_btn.add_css_class("flat")
+            new_tab_btn.add_css_class("cra-nav-btn")
+            new_tab_btn.set_tooltip_text("New Tab (Ctrl+T)")
+            new_tab_btn.connect("clicked", lambda *_: self.on_new_tab_requested())
+            self.today_header_box.append(new_tab_btn)
 
         clear_btn = Gtk.Button(label="Clear")
         clear_btn.add_css_class("flat")
@@ -151,49 +197,86 @@ class Sidebar(Gtk.Box):
         self.today_list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.content_box.append(self.today_list)
 
-        # Space Dock at bottom
+        # 3. Space Dock at bottom
         self.space_dock = SpaceDock(
             on_switch_space=self.on_space_switched,
             on_new_space=self.on_new_space_requested,
             on_open_settings=self.on_open_settings,
+            on_edit_space=self.on_edit_space,
+            on_delete_space=self.on_delete_space,
         )
         self.append(self.space_dock)
+
+    def update_nav_buttons(self, can_go_back: bool, can_go_forward: bool):
+        """Update sensitivity of navigation buttons."""
+        self.back_btn.set_sensitive(can_go_back)
+        self.fwd_btn.set_sensitive(can_go_forward)
 
     def update_sidebar(self, active_space: Space, active_tab_id: Optional[str]):
         """Re-render items for the currently active space."""
         # Update URL label
         active_item = self.doc.get_item(active_tab_id) if active_tab_id else None
         if active_item and active_item.tab_data:
-            self.url_label.set_text(active_item.tab_data.url.replace("https://", ""))
+            clean_url = active_item.tab_data.url.replace("https://", "").replace("http://", "")
+            self.url_label.set_text(clean_url or "about:blank")
         else:
             self.url_label.set_text("Search or enter URL…")
 
         # 1. Favorites
         favorites = self.doc.get_children(active_space.favorites_container_id)
-        self.favorites_grid.set_favorites(favorites)
+        self.favorites_grid.set_favorites(favorites, active_tab_id=active_tab_id)
         self.favorites_grid.set_visible(len(favorites) > 0)
 
-        # 2. Pinned
+        # 2. Pinned & Folders
         while True:
             child = self.pinned_list.get_first_child()
             if not child:
                 break
             self.pinned_list.remove(child)
 
-        pinned = self.doc.get_children(active_space.pinned_container_id)
-        self.pinned_box.set_visible(len(pinned) > 0)
-        for item in pinned:
-            row = TabRow(
-                item=item,
-                is_active=(item.id == active_tab_id),
-                is_pinned=True,
-                on_select=self.on_tab_selected,
-                on_close=self.on_tab_closed,
-                on_toggle_pin=self.on_toggle_pin,
-            )
-            self.pinned_list.append(row)
+        pinned_items = self.doc.get_children(active_space.pinned_container_id)
+        self.pinned_box.set_visible(len(pinned_items) > 0)
 
-        # 3. Today
+        def _render_pinned_item(item: SidebarItem, indent: int = 0):
+            if item.item_type == "folder":
+                child_count = len(item.children)
+                folder_row = FolderRow(
+                    folder_item=item,
+                    child_count=child_count,
+                    on_toggle=self._on_folder_toggled,
+                    on_new_tab=lambda f: self.on_new_tab_requested() if self.on_new_tab_requested else None,
+                    on_new_subfolder=lambda f: self.on_new_folder_requested(f.id) if self.on_new_folder_requested else None,
+                    on_rename=self.on_rename_item,
+                    on_delete=lambda f: self.on_tab_closed(f),
+                    indent_level=indent,
+                )
+                self.pinned_list.append(folder_row)
+
+                if item.is_expanded:
+                    for child_id in item.children:
+                        c_item = self.doc.get_item(child_id)
+                        if c_item:
+                            _render_pinned_item(c_item, indent + 1)
+            else:
+                row = TabRow(
+                    item=item,
+                    is_active=(item.id == active_tab_id),
+                    is_pinned=True,
+                    on_select=self.on_tab_selected,
+                    on_close=self.on_tab_closed,
+                    on_toggle_pin=self.on_toggle_pin,
+                    on_reset_home=self.on_reset_home,
+                    on_make_home=self.on_make_home,
+                    on_rename=self.on_rename_item,
+                    on_open_split=self.on_open_split,
+                    indent_level=indent,
+                )
+                self.pinned_list.append(row)
+
+        for item in pinned_items:
+            _render_pinned_item(item, indent=0)
+
+        # 3. Today Tabs
         while True:
             child = self.today_list.get_first_child()
             if not child:
@@ -209,8 +292,16 @@ class Sidebar(Gtk.Box):
                 on_select=self.on_tab_selected,
                 on_close=self.on_tab_closed,
                 on_toggle_pin=self.on_toggle_pin,
+                on_rename=self.on_rename_item,
+                on_open_split=self.on_open_split,
             )
             self.today_list.append(row)
 
         # 4. Spaces
         self.space_dock.set_spaces(self.doc.spaces, active_space.id)
+
+    def _on_folder_toggled(self, folder_item: SidebarItem):
+        self.doc.toggle_folder(folder_item.id)
+        active_space = self.doc.get_space(folder_item.space_id) if folder_item.space_id else None
+        if active_space:
+            self.update_sidebar(active_space, None)

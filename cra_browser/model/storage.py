@@ -5,7 +5,7 @@ import os
 import json
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from .sidebar import SidebarDocument, SidebarItem
 
 
@@ -121,7 +121,40 @@ class Storage:
         tmp_path = path.with_suffix(".tmp")
         try:
             with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(current, f, indent=2)
+                json.dump(current, f, indent=2, ensure_ascii=False)
             tmp_path.replace(path)
         except Exception as e:
             print(f"[CraStorage] Error updating archive.json: {e}")
+
+    @classmethod
+    def load_archive(cls) -> List[dict]:
+        path = cls.get_archive_path()
+        if not path.exists():
+            return []
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    @classmethod
+    def clear_archive(cls):
+        path = cls.get_archive_path()
+        if path.exists():
+            try:
+                path.unlink()
+            except Exception as e:
+                print(f"[CraStorage] Error clearing archive.json: {e}")
+
+    @classmethod
+    def run_auto_archive(cls, doc: SidebarDocument, settings: Dict[str, Any]) -> int:
+        """Run inactive Today tab auto-archiving based on settings."""
+        threshold_hours = settings.get("auto_archive_threshold_hours", 24)
+        if threshold_hours <= 0:
+            return 0
+        archived = doc.auto_archive_today_tabs(threshold_hours)
+        if archived:
+            cls.archive_tabs(archived, reason="auto")
+            cls.save_sidebar(doc)
+            print(f"[CraStorage] Auto-archived {len(archived)} inactive tabs (threshold: {threshold_hours}h).")
+        return len(archived)

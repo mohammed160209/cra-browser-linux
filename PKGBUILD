@@ -1,10 +1,11 @@
 # Maintainer: icesaviour <https://github.com/icesaviour02-droid>
+# Contributor: mohammed160209 <https://github.com/mohammed160209>
 pkgname=cra-browser-linux-git
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="Native GTK4 and Libadwaita port of the open-source Cra/Arc browser for Arch Linux and CachyOS"
 arch=('x86_64' 'aarch64')
-url="https://github.com/icesaviour02-droid/cra-browser-linux"
+url="https://github.com/mohammed160209/cra-browser-linux"
 license=('MIT')
 depends=(
     'gtk4'
@@ -13,20 +14,24 @@ depends=(
     'python'
     'python-gobject'
 )
-makedepends=('git' 'python-setuptools')
+makedepends=('git' 'python-setuptools' 'python-build' 'python-installer')
 provides=('cra-browser')
 conflicts=('cra-browser')
-source=("git+https://github.com/icesaviour02-droid/cra-browser-linux.git")
+source=("git+https://github.com/mohammed160209/cra-browser-linux.git")
 sha256sums=('SKIP')
+
+build() {
+    cd "${srcdir}/${pkgname%-git}"
+    python setup.py build
+}
 
 package() {
     cd "${srcdir}/${pkgname%-git}"
 
-    # Install Python modules
-    install -dm755 "${pkgdir}/usr/lib/python3/site-packages/cra_browser"
-    cp -r cra_browser/* "${pkgdir}/usr/lib/python3/site-packages/cra_browser/"
+    # Install using setuptools into package root
+    python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
 
-    # Install executable
+    # Install executable launcher
     install -Dm755 bin/cra-browser "${pkgdir}/usr/bin/cra-browser"
 
     # Install desktop entry and metainfo

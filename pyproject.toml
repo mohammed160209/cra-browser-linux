@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cra-browser"
+version = "0.1.0"
+description = "Native GTK4 and Libadwaita port of the open-source Cra/Arc browser for Arch Linux and CachyOS"
+readme = "README.md"
+authors = [{ name = "icesaviour / mohammed160209" }]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+keywords = ["arc", "cra", "browser", "gtk4", "libadwaita", "webkitgtk"]
+
+[project.scripts]
+cra-browser = "cra_browser.app:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
