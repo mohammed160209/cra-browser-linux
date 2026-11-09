@@ -66,6 +66,8 @@ std::string DisplayAddress(const std::string& url) {
     const auto host = CefString(&parts.host).ToString();
     if (!host.empty()) return host;
   }
+  if (url.starts_with("file://"))
+    return std::filesystem::path(url.substr(7)).filename().string();
   return url;
 }
 
@@ -75,6 +77,7 @@ std::string Lowercase(std::string value) {
 }
 
 void ApplyChromeTheme(CefRefPtr<CefWindow> window) {
+  window->SetThemeColor(CEF_ColorPrimaryBackground, kFrame);
   window->SetThemeColor(CEF_ColorFrameActive, kFrame);
   window->SetThemeColor(CEF_ColorFrameInactive, kFrame);
   window->SetThemeColor(CEF_ColorTextfieldBackground, kCommand);
@@ -84,16 +87,23 @@ void ApplyChromeTheme(CefRefPtr<CefWindow> window) {
   window->SetThemeColor(CEF_ColorTextfieldSelectionForeground, kToolbarInk);
 }
 
-class FixedPanel : public CefPanelDelegate {
+template <typename Delegate>
+class PaintedView : public Delegate {
  public:
-  explicit FixedPanel(CefSize size) : size_(size) {}
+  explicit PaintedView(cef_color_t color, CefSize size = {}) : color_(color), size_(size) {}
   CefSize GetPreferredSize(CefRefPtr<CefView>) override { return size_; }
   CefSize GetMinimumSize(CefRefPtr<CefView>) override { return size_; }
+  void OnThemeChanged(CefRefPtr<CefView> view) override { view->SetBackgroundColor(color_); }
 
  private:
+  const cef_color_t color_;
   const CefSize size_;
-  IMPLEMENT_REFCOUNTING(FixedPanel);
+  IMPLEMENT_REFCOUNTING(PaintedView);
 };
+
+CefRefPtr<CefPanel> Panel(cef_color_t color, CefSize size = {}) {
+  return CefPanel::CreatePanel(new PaintedView<CefPanelDelegate>(color, size));
+}
 
 class UiTask : public CefTask {
  public:
@@ -120,13 +130,18 @@ class FaviconDownload : public CefDownloadImageCallback {
 
 class Button : public CefButtonDelegate {
  public:
-  explicit Button(std::function<void()> action) : action_(std::move(action)) {}
+  explicit Button(std::function<void()> action, cef_color_t background)
+      : action_(std::move(action)), background_(background) {}
   void OnButtonPressed(CefRefPtr<CefButton>) override {
     auto action = action_;
     action();
   }
+  void OnThemeChanged(CefRefPtr<CefView> view) override {
+    if (background_) view->SetBackgroundColor(background_);
+  }
  private:
   std::function<void()> action_;
+  const cef_color_t background_;
   IMPLEMENT_REFCOUNTING(Button);
 };
 
@@ -223,13 +238,12 @@ CefRefPtr<CefLabelButton> AddButton(
     std::function<void()> action, cef_color_t foreground = kInk,
     cef_color_t background = 0, int height = 30, bool center = false,
     int width = 0, std::string_view tooltip = {}, bool bold = false) {
-  auto button = CefLabelButton::CreateLabelButton(new Button(std::move(action)), text);
+  auto button = CefLabelButton::CreateLabelButton(new Button(std::move(action), background), text);
   button->SetFontList(bold ? "sans-serif, Bold 13px" : "sans-serif, 13px");
   button->SetHorizontalAlignment(center ? CEF_HORIZONTAL_ALIGNMENT_CENTER
                                         : CEF_HORIZONTAL_ALIGNMENT_LEFT);
   button->SetEnabledTextColors(foreground);
   button->SetInkDropEnabled(true);
-  if (background) button->SetBackgroundColor(background);
   button->SetMinimumSize({width, height});
   if (width) button->SetMaximumSize({width, height});
   if (!tooltip.empty()) {
@@ -383,25 +397,21 @@ class Shell : public CefClient,
     window_->SetTitle("Cra");
     ApplyChromeTheme(window_);
     window_->ThemeChanged();
-    auto root = CefPanel::CreatePanel(nullptr);
-    root->SetBackgroundColor(kFrame);
+    auto root = Panel(kFrame);
     auto row = Box(root, false, 8, {8, 0, 8, 8});
     window_->SetToFillLayout();
     window_->AddChildView(root);
 
-    sidebar_ = CefPanel::CreatePanel(new FixedPanel({kSidebarWidth, 1}));
-    sidebar_->SetBackgroundColor(kSidebar);
+    sidebar_ = Panel(kSidebar, {kSidebarWidth, 1});
     Box(sidebar_, true, 6, {4, 8, 2, 8});
     root->AddChildView(sidebar_);
 
-    auto workspace = CefPanel::CreatePanel(nullptr);
-    workspace->SetBackgroundColor(kSelected);
+    auto workspace = Panel(kSelected);
     auto column = Box(workspace, true);
     root->AddChildView(workspace);
     row->SetFlexForView(workspace, 1);
 
-    auto toolbar = CefPanel::CreatePanel(nullptr);
-    toolbar->SetBackgroundColor(kToolbar);
+    auto toolbar = Panel(kToolbar);
     auto bar = Box(toolbar, false, 3, {2, 6, 2, 6});
     workspace->AddChildView(toolbar);
     AddButton(toolbar, "◫", [this] { Accelerate('S'); },
@@ -444,6 +454,8 @@ class Shell : public CefClient,
     ShowSelected();
     window_->Show();
     window_->Layout();
+    if (const auto* tab = session_.Find(session_.selected);
+        tab && tab->url == "about:blank") OpenCommand(CommandMode::NewTab);
   }
 
   void PositionCommand() {
@@ -622,8 +634,10 @@ class Shell : public CefClient,
   }
 
   CefRefPtr<CefBrowserView> MakeView(const std::string& url, CefRefPtr<CefRequestContext> context) {
-    return CefBrowserView::CreateBrowserView(this, url, CefBrowserSettings{},
-                                             nullptr, context, new ViewDelegate());
+    CefBrowserSettings settings;
+    settings.background_color = kSelected;
+    return CefBrowserView::CreateBrowserView(this, url, settings, nullptr, context,
+                                             new ViewDelegate());
   }
 
   void ResetSecondary() {
@@ -708,9 +722,8 @@ class Shell : public CefClient,
   }
 
   void AddTabRow(CefRefPtr<CefPanel> list, const Tab& tab, bool nested = false) {
-    auto row = CefPanel::CreatePanel(nullptr);
     const bool active = !archive_visible_ && tab.id == session_.selected;
-    if (active) row->SetBackgroundColor(kSelected);
+    auto row = active ? Panel(kSelected) : CefPanel::CreatePanel(nullptr);
     auto layout = Box(row, false, 1, {0, nested ? 13 : 0, 0, 0});
     const auto label = Label(tab);
     const auto icon = favicons_.find(tab.id);
@@ -750,10 +763,8 @@ class Shell : public CefClient,
     });
     sidebar_->AddChildView(header);
 
-    auto scroll = CefScrollView::CreateScrollView(nullptr);
-    scroll->SetBackgroundColor(kSidebar);
-    auto list = CefPanel::CreatePanel(nullptr);
-    list->SetBackgroundColor(kSidebar);
+    auto scroll = CefScrollView::CreateScrollView(new PaintedView<CefViewDelegate>(kSidebar));
+    auto list = Panel(kSidebar);
     Box(list, true, 3);
 
     if (archive_visible_) {
@@ -776,9 +787,8 @@ class Shell : public CefClient,
           list->AddChildView(tiles);
         }
         const auto title = Label(tab);
-        const auto address = DisplayAddress(tab.url);
-        const auto glyph = !address.empty() && static_cast<unsigned char>(address.front()) < 128
-            ? std::string(1, static_cast<char>(std::toupper(static_cast<unsigned char>(address.front()))))
+        const auto glyph = !title.empty() && static_cast<unsigned char>(title.front()) < 128
+            ? std::string(1, static_cast<char>(std::toupper(static_cast<unsigned char>(title.front()))))
             : "◦";
         const auto icon = favicons_.find(tab.id);
         auto tile = AddButton(tiles, icon == favicons_.end() ? glyph : "",
@@ -831,8 +841,7 @@ class Shell : public CefClient,
     sidebar_->AddChildView(scroll);
     sidebar_->GetLayout()->AsBoxLayout()->SetFlexForView(scroll, 1);
 
-    auto dock = CefPanel::CreatePanel(nullptr);
-    dock->SetBackgroundColor(kTile);
+    auto dock = Panel(kTile);
     auto dock_layout = Box(dock, false, 4, {1, 3, 1, 3});
     AddButton(dock, "▤", [this] {
       archive_visible_ = !archive_visible_;
@@ -853,8 +862,7 @@ class Shell : public CefClient,
   }
 
   void BuildCommand() {
-    auto panel = CefPanel::CreatePanel(nullptr);
-    panel->SetBackgroundColor(kCommand);
+    auto panel = Panel(kCommand);
     auto layout = Box(panel, true, 4, {8, 10, 8, 10});
     command_input_ = CefTextfield::CreateTextfield(new CommandEntry(
         [this](int key) { return CommandKey(key); },

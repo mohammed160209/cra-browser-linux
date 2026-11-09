@@ -46,7 +46,8 @@ main{{max-width:620px;padding:50px}}span{{display:inline-block;padding:10px 19px
          selected=1, tabs=tabs, archive=[])))
 PY
 
-"$browser" --no-sandbox --disable-gpu --disable-background-networking   --disable-component-update >"$output/chrome-ui.log" 2>&1 &
+"$browser" --no-sandbox --disable-gpu --disable-background-networking \
+  --disable-component-update >"$output/chrome-ui.log" 2>&1 &
 browser_pid=$!
 windows=$(timeout 25 xdotool search --sync --onlyvisible --name '^Cra$')
 window=${windows%%$'\n'*}
@@ -58,6 +59,19 @@ sleep 0.4
 xdotool type --clearmodifiers 'Release notes'
 sleep 0.4
 import -window root "$output/command-bar.png"
+assert_color() {
+  local file=$1 color=$2 minimum=$3 coverage
+  coverage=$(convert "$file" -alpha off -fuzz 0 -fill black +opaque "$color" \
+    -fill white -opaque "$color" -format '%[fx:mean]' info:)
+  if ! awk -v actual="$coverage" -v minimum="$minimum" 'BEGIN { exit !(actual >= minimum) }'; then
+    echo "Expected $color to cover at least $minimum of $file (actual: $coverage)." >&2
+    return 1
+  fi
+}
+
+assert_color "$output/sidebar.png" '#e5e0ef' 0.05
+assert_color "$output/sidebar.png" '#4348b9' 0.01
+assert_color "$output/command-bar.png" '#231f30' 0.03
 xdotool key Down Return
 
 for attempt in {1..30}; do

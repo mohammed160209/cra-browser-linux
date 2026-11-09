@@ -4,7 +4,7 @@ This preview uses C++ and Chromium Embedded Framework with CEF Views. It follows
 
 ## Install on CachyOS or Arch Linux
 
-Install the x86-64 package with `sudo pacman -U ./cra-browser-cef-0.2.2-1-x86_64.pkg.tar.zst`, then launch **Cra Browser (Chromium Preview)** or run `cra-browser-cef`. The package has a separate desktop entry and stores its data under `$XDG_DATA_HOME/cra-browser-cef` (normally `~/.local/share/cra-browser-cef`).
+Install the x86-64 package with `sudo pacman -U ./cra-browser-cef-0.2.2-2-x86_64.pkg.tar.zst`, then launch **Cra Browser (Chromium Preview)** or run `cra-browser-cef`. The package has a separate desktop entry and stores its data under `$XDG_DATA_HOME/cra-browser-cef` (normally `~/.local/share/cra-browser-cef`).
 
 To build from this branch on Arch, install `base-devel`, `git`, `cmake`, and `ninja`, then run `makepkg -si`. The package recipe verifies the CEF archive against its pinned SHA-256.
 
