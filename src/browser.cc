@@ -162,7 +162,7 @@ class Shell : public CefClient,
     if (!writable_) std::cerr << "Cra could not read session.json. Keeping the original file.\n";
     session_.ArchiveToday(Session::Now() - 86400, session_.selected);
     for (const auto& url : urls) session_.Add(Resolve(url));
-    if (smoke_) session_.Add("data:text/html,%3Ctitle%3ECra%20CEF%20smoke%3C/title%3E");
+    if (smoke_) session_.Add("data:text/html,%3Ctitle%3ECra%20CEF%20smoke%3C/title%3E#primary");
   }
 
   CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
@@ -269,12 +269,12 @@ class Shell : public CefClient,
   }
 
   bool CanClose() {
-    if (closing_) return browsers_.empty();
+    if (closing_) return true;
     closing_ = true;
     Persist();
     const auto browsers = browsers_;
     for (const auto& [id, browser] : browsers) browser->GetHost()->CloseBrowser(true);
-    return browsers_.empty();
+    return true;
   }
 
   void Destroyed() {
@@ -295,12 +295,7 @@ class Shell : public CefClient,
 
   void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
     browsers_.erase(browser->GetIdentifier());
-    if (!closing_ || !browsers_.empty()) return;
-    CefRefPtr<Shell> self(this);
-    CefPostTask(TID_UI, new UiTask([shell = std::move(self)] {
-      if (shell->window_) shell->window_->Close();
-      else CefQuitMessageLoop();
-    }));
+    if (closing_ && !window_ && browsers_.empty()) CefQuitMessageLoop();
   }
 
   void OnAddressChange(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
@@ -326,14 +321,27 @@ class Shell : public CefClient,
   }
 
   void OnLoadEnd(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame, int) override {
-    if (!smoke_ || smoke_done_ || !frame->IsMain() || !frame->GetURL().ToString().starts_with("data:text/html"))
-      return;
-    std::cout << "Cra CEF smoke test: Chromium loaded the local fixture." << std::endl;
-    smoke_done_ = true;
+    if (!smoke_ || smoke_done_ || !frame->IsMain()) return;
+    const auto url = frame->GetURL().ToString();
+    if (!url.starts_with("data:text/html")) return;
     CefRefPtr<Shell> self(this);
-    CefPostTask(TID_UI, new UiTask([shell = std::move(self)] {
-      if (shell->window_) shell->window_->Close();
-    }));
+    if (url.ends_with("#primary")) {
+      CefPostTask(TID_UI, new UiTask([shell = std::move(self)] {
+        if (!shell->window_ || shell->secondary_) return;
+        shell->secondary_ = shell->MakeView(
+            "data:text/html,%3Ctitle%3ECra%20second%20pane%3C/title%3E#secondary",
+            shell->Context());
+        shell->right_->AddChildView(shell->secondary_);
+        shell->right_->SetVisible(true);
+        shell->window_->Layout();
+      }));
+    } else if (url.ends_with("#secondary")) {
+      std::cout << "Cra CEF smoke test: Chromium loaded local fixtures in both panes." << std::endl;
+      smoke_done_ = true;
+      CefPostTask(TID_UI, new UiTask([shell = std::move(self)] {
+        if (shell->window_) shell->window_->Close();
+      }));
+    }
   }
 
  private:
