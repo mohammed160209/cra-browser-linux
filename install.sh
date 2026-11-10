@@ -12,16 +12,25 @@ $SUDO rm -f /usr/bin/cra-browser
 $SUDO rm -rf /usr/lib/python3*/site-packages/cra_browser*
 $SUDO rm -rf /usr/lib/cra-browser
 
-echo "==> Building Cra Browser (1:1 macOS Arc Edition)..."
-if [ ! -d "node_modules" ]; then
-    npm install
+echo "==> Setting up dependencies..."
+npm install --ignore-scripts=false
+
+# Explicitly ensure Electron engine binary is downloaded in user space before copying
+if [ ! -f "node_modules/electron/dist/electron" ]; then
+    echo "==> Downloading Electron engine binary..."
+    if [ -f "node_modules/electron/install.js" ]; then
+        node node_modules/electron/install.js
+    fi
 fi
+
+echo "==> Compiling Cra Browser UI shell..."
 node build.js
 
 echo "==> Installing Cra Browser to /usr/lib/cra-browser..."
 $SUDO mkdir -p /usr/lib/cra-browser /usr/bin /usr/share/applications /usr/share/icons/hicolor/scalable/apps /usr/share/metainfo
 
 $SUDO cp -r package.json dist node_modules /usr/lib/cra-browser/
+$SUDO chmod -R a+rX /usr/lib/cra-browser/
 $SUDO install -Dm755 bin/cra-browser /usr/bin/cra-browser
 
 echo "==> Installing desktop entry and icons..."

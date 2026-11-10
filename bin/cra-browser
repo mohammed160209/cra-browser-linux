@@ -2,34 +2,31 @@
 # Launcher script for Cra Browser Linux (macOS Arc 1:1 Edition)
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-
 # 1. Determine Application Directory
-if [ -f "$REPO_ROOT/dist/main.js" ]; then
-    APP_DIR="$REPO_ROOT"
-elif [ -d "/usr/lib/cra-browser" ]; then
+if [ -d "/usr/lib/cra-browser/dist" ]; then
     APP_DIR="/usr/lib/cra-browser"
-elif [ -d "$HOME/.local/share/cra-browser" ]; then
+elif [ -f "$(dirname "$0")/../dist/main.js" ]; then
+    APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+elif [ -d "$HOME/.local/share/cra-browser/dist" ]; then
     APP_DIR="$HOME/.local/share/cra-browser"
 else
-    APP_DIR="$REPO_ROOT"
+    APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 fi
 
 # 2. Determine Electron Binary
 ELECTRON_CMD=""
-if command -v electron >/dev/null 2>&1; then
+if [ -x "$APP_DIR/node_modules/electron/dist/electron" ]; then
+    ELECTRON_CMD="$APP_DIR/node_modules/electron/dist/electron"
+elif command -v electron >/dev/null 2>&1; then
     ELECTRON_CMD="electron"
 elif [ -x "$APP_DIR/node_modules/.bin/electron" ]; then
     ELECTRON_CMD="$APP_DIR/node_modules/.bin/electron"
-elif [ -x "$REPO_ROOT/node_modules/.bin/electron" ]; then
-    ELECTRON_CMD="$REPO_ROOT/node_modules/.bin/electron"
 elif command -v npx >/dev/null 2>&1; then
     ELECTRON_CMD="npx electron"
 else
-    echo "Error: Electron is not installed. Please install electron via pacman ('sudo pacman -S electron') or npm." >&2
+    echo "Error: Electron binary not found. Please install electron with 'sudo pacman -S electron' or run './install.sh'." >&2
     exit 1
 fi
 
 # 3. Launch Cra Browser
-exec $ELECTRON_CMD "$APP_DIR" "$@"
+exec "$ELECTRON_CMD" "$APP_DIR" "$@"
