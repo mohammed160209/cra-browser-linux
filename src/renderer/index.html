@@ -15,12 +15,11 @@
   <div id="app-container">
     <!-- Left Sidebar -->
     <aside class="cra-sidebar" id="sidebar">
-      <!-- Sidebar Header -->
+      <!-- Sidebar Header (Clean Linux CSD styling - No fake macOS traffic lights) -->
       <header class="sidebar-header">
-        <div class="traffic-lights">
-          <span class="light-dot close" id="btn-close-app" title="Close"></span>
-          <span class="light-dot minimize" id="btn-minimize-app" title="Minimize"></span>
-          <span class="light-dot maximize" id="btn-maximize-app" title="Maximize"></span>
+        <div class="sidebar-brand">
+          <svg class="brand-logo" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
+          <span class="space-title-display" id="space-title-display">Personal</span>
         </div>
         <div class="sidebar-controls">
           <button class="icon-btn" id="btn-toggle-sidebar" title="Toggle Sidebar (Ctrl+S)">
@@ -50,7 +49,7 @@
             </div>
           </div>
           <div class="tab-list" id="pinned-list">
-            <!-- Pinned Tabs & Folders -->
+            <!-- Pinned Tabs & Folders with 3D Glyphs -->
           </div>
         </section>
 
@@ -92,7 +91,7 @@
     <!-- Right Content Wrapper -->
     <main class="content-wrapper" id="content-wrapper">
       <div class="pane-card" id="pane-card">
-        <!-- Top Toolbar -->
+        <!-- Top Toolbar (Zen Browser Linux CSD) -->
         <nav class="pane-toolbar" id="pane-toolbar">
           <div class="nav-group">
             <button class="nav-btn" id="btn-history-back" title="Back (Alt+Left)">
@@ -110,7 +109,7 @@
           <div class="url-pill" id="url-pill" title="Click to search or enter URL (Ctrl+L)">
             <svg class="url-lock-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
             <span class="url-text" id="url-text">Search or enter URL...</span>
-            <span class="url-badge">⌘L</span>
+            <span class="url-badge">Ctrl+L</span>
           </div>
 
           <!-- Toolbar Right Actions -->
@@ -125,6 +124,20 @@
               <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
             </button>
           </div>
+
+          <!-- Linux CSD Window Controls (Zen Browser style) -->
+          <div class="window-controls-linux" id="window-controls">
+            <button class="window-control-btn minimize" id="btn-win-minimize" title="Minimize">
+              <svg viewBox="0 0 24 24"><path d="M5 12h14v2H5z"/></svg>
+            </button>
+            <button class="window-control-btn maximize" id="btn-win-maximize" title="Maximize">
+              <svg class="icon-maximize" viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm2 2v12h12V6H6z"/></svg>
+              <svg class="icon-restore" viewBox="0 0 24 24" style="display:none;"><path d="M4 8h12v12H4V8zm2 2v8h8v-8H6zm4-6h10v10h-2V6h-8V4z"/></svg>
+            </button>
+            <button class="window-control-btn close" id="btn-win-close" title="Close">
+              <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </div>
         </nav>
 
         <!-- Placeholder when no tab is selected -->
@@ -133,6 +146,11 @@
             <svg style="width: 18px; height: 18px; fill: currentColor;" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
             <span>Search or Enter URL…</span>
           </div>
+        </div>
+
+        <!-- Interactive Split Divider Handle (1:1 macOS Cra SplitDraggerHandleView) -->
+        <div class="split-divider-handle" id="split-divider-handle" style="display: none;" title="Drag to resize, double-click to center">
+          <div class="split-pill"></div>
         </div>
       </div>
     </main>
@@ -159,20 +177,25 @@
       </div>
     </div>
 
-    <!-- macOS Settings Modal (778x509) -->
+    <!-- Linux Modal Settings (Full Settings Experience) -->
     <div class="settings-overlay" id="settings-overlay">
       <div class="settings-window">
         <!-- 204px Left Nav Rail -->
         <nav class="settings-sidebar">
           <div class="settings-window-header">
-            <div class="traffic-lights">
-              <span class="light-dot close" id="btn-close-settings" title="Close Settings"></span>
-            </div>
+            <span class="settings-header-label">Preferences</span>
+            <button class="modal-close-btn" id="btn-close-settings" title="Close Settings (Esc)">
+              <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
           </div>
           <div class="settings-sidebar-nav">
             <div class="settings-nav-item active" data-pane="general">
               <span class="settings-nav-glyph"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></span>
               <span>General</span>
+            </div>
+            <div class="settings-nav-item" data-pane="appearance">
+              <span class="settings-nav-glyph"><svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.27 19.64 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg></span>
+              <span>Appearance</span>
             </div>
             <div class="settings-nav-item" data-pane="tabs">
               <span class="settings-nav-glyph"><svg viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5z"/></svg></span>
@@ -208,6 +231,56 @@
         </section>
       </div>
     </div>
+
+    <!-- Folder Customization Modal (1:1 macOS FolderGlyph & Symbol Picker) -->
+    <div class="modal-overlay" id="folder-picker-overlay">
+      <div class="folder-picker-card" id="folder-picker-card">
+        <div class="folder-picker-header">
+          <span class="folder-picker-title">Customize Folder</span>
+          <button class="modal-close-btn" id="btn-close-folder-picker" title="Close">
+            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <div class="folder-picker-body">
+          <div class="folder-picker-preview-row">
+            <div class="folder-preview-glyph-box" id="folder-preview-glyph-box"></div>
+            <input type="text" class="folder-name-input" id="folder-picker-name-input" placeholder="Folder Name">
+          </div>
+          <div class="picker-section-label">Folder Color</div>
+          <div class="color-palette" id="folder-color-palette"></div>
+          <div class="picker-section-label">Symbol</div>
+          <div class="symbol-grid" id="folder-symbol-grid"></div>
+        </div>
+        <div class="folder-picker-footer">
+          <button class="mac-btn secondary" id="btn-cancel-folder-picker">Cancel</button>
+          <button class="mac-btn primary" id="btn-save-folder-picker">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right-Click Context Menu for Folders -->
+    <div class="folder-context-menu" id="folder-context-menu" style="display: none;">
+      <div class="context-item" id="ctx-new-tab">
+        <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        <span>New Tab in Folder</span>
+      </div>
+      <div class="context-item" id="ctx-rename-folder">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        <span>Rename Folder</span>
+      </div>
+      <div class="context-item" id="ctx-custom-folder">
+        <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.27 19.64 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+        <span>Change Icon & Color…</span>
+      </div>
+      <div class="context-separator"></div>
+      <div class="context-item danger" id="ctx-delete-folder">
+        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span>Delete Folder</span>
+      </div>
+    </div>
+
+    <!-- Folder Hover Preview Popover (1:1 macOS FolderPreview) -->
+    <div class="folder-hover-preview" id="folder-hover-preview" style="display: none;"></div>
   </div>
 
   <script src="app.js"></script>

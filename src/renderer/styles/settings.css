@@ -50,10 +50,18 @@
 .settings-window-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   height: 30px;
   margin-bottom: 12px;
   padding: 0 4px;
+}
+
+.settings-header-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
 }
 
 .settings-sidebar-nav {

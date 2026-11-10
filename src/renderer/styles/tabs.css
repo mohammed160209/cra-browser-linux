@@ -110,18 +110,25 @@
   fill: currentColor;
 }
 
-/* Folders */
+/* Folders with 1:1 macOS 3D Perspective Glyphs */
+.folder-container {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
 .folder-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 6px;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
   cursor: pointer;
   color: var(--text-secondary);
   font-weight: 500;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease, color 0.12s ease;
+  position: relative;
 }
 
 .folder-row:hover {
@@ -129,39 +136,248 @@
   color: var(--text-primary);
 }
 
-.folder-chevron {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.18s var(--ease-spring);
+/* 3D Perspective Folder Glyph (1:1 Arc/Cra FolderGlyphView) */
+.folder-glyph-container {
+  width: 18px;
+  height: 18px;
+  position: relative;
+  perspective: 300px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.folder-chevron.expanded {
-  transform: rotate(90deg);
+.folder-back-panel {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  width: 18px;
+  height: 16px;
+  border-radius: 2px 4px 3px 3px;
+  background: currentColor;
+  opacity: 0.85;
+  transform-origin: 0% 100%;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease;
+  overflow: hidden;
+}
+
+.folder-back-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 2px 2px 0 0;
+}
+
+.folder-front-panel {
+  position: absolute;
+  bottom: 1px;
+  left: 0;
+  width: 18px;
+  height: 12px;
+  border-radius: 2px 3px 3px 2px;
+  background: currentColor;
+  transform-origin: 0% 100%;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.folder-front-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(0, 0, 0, 0.15) 100%);
+  pointer-events: none;
+}
+
+/* 3D Opened/Expanded state */
+.folder-glyph-container.expanded .folder-back-panel {
+  transform: rotateX(18deg) translateY(-1px);
+  opacity: 0.65;
+}
+
+.folder-glyph-container.expanded .folder-front-panel {
+  transform: translate3d(2px, 0, 0) rotateY(28deg) rotateX(-26deg);
+  filter: brightness(1.1);
+}
+
+/* Folder Emblem / Symbol on front flap */
+.folder-symbol-icon {
+  width: 9px;
+  height: 9px;
+  fill: rgba(0, 0, 0, 0.6);
+  z-index: 2;
+  transition: transform 0.25s ease;
+}
+
+.folder-glyph-container.dark-emblem .folder-symbol-icon {
+  fill: rgba(255, 255, 255, 0.85);
+}
+
+/* Peek dots on closed folder (3 tiny dots) */
+.folder-peek-dots {
+  display: flex;
+  gap: 2px;
+  z-index: 2;
+}
+
+.folder-peek-dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.folder-glyph-container.dark-emblem .folder-peek-dot {
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .folder-title {
   flex: 1;
-  font-size: 12px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.folder-rename-input {
+  flex: 1;
+  height: 24px;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--space-accent);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
 .folder-count {
   font-size: 11px;
   color: var(--text-tertiary);
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
 }
 
 .folder-children {
   margin-left: 14px;
-  padding-left: 6px;
+  padding-left: 8px;
   border-left: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* Folder Context Menu (Clean Linux Popup) */
+.folder-context-menu {
+  position: fixed;
+  z-index: 1000;
+  width: 190px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-popup);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.context-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.context-item:hover {
+  background: var(--hover-fill);
+}
+
+.context-item.danger:hover {
+  background: rgba(232, 17, 35, 0.25);
+  color: #ff5f57;
+}
+
+.context-item svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  color: var(--text-secondary);
+}
+
+.context-item.danger:hover svg {
+  color: #ff5f57;
+}
+
+.context-separator {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 3px 2px;
+}
+
+/* Folder Hover Preview Card (1:1 macOS FolderPreview) */
+.folder-hover-preview {
+  position: fixed;
+  z-index: 900;
+  min-width: 220px;
+  max-width: 300px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-popup);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.folder-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.folder-preview-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: contain;
+}
+
+.folder-preview-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Drag and Drop Styling */

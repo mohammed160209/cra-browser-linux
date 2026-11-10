@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import * as path from 'path';
 import { Storage, SidebarDocument, Settings } from './storage';
 import { ViewManager } from './view-manager';
@@ -13,6 +13,7 @@ let viewManager: ViewManager | null = null;
 let tabSleepService: TabSleepService | null = null;
 
 function createWindow() {
+  Menu.setApplicationMenu(null);
   const settings = Storage.loadSettings();
 
   mainWindow = new BrowserWindow({
@@ -21,13 +22,20 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'Cra Browser',
-    frame: true,
+    frame: false,
     backgroundColor: '#1e1c26',
     webPreferences: {
       preload: path.join(currentDir, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send('window-state-changed', true);
+  });
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send('window-state-changed', false);
   });
 
   viewManager = new ViewManager(mainWindow);
@@ -204,5 +212,38 @@ ipcMain.handle('open-external', (_event, url: string) => {
 
 ipcMain.handle('set-content-visible', (_event, visible: boolean) => {
   viewManager?.setContentVisible(visible);
+  return true;
+});
+
+ipcMain.handle('window-minimize', () => {
+  mainWindow?.minimize();
+  return true;
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow.unmaximize();
+  } else {
+    mainWindow?.maximize();
+  }
+  return mainWindow?.isMaximized() || false;
+});
+
+ipcMain.handle('window-close', () => {
+  mainWindow?.close();
+  return true;
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow?.isMaximized() || false;
+});
+
+ipcMain.handle('set-split-ratio', (_event, ratio: number) => {
+  viewManager?.setSplitRatio(ratio);
+  return true;
+});
+
+ipcMain.handle('set-topbar-visible', (_event, visible: boolean) => {
+  viewManager?.setTopBarVisible(visible);
   return true;
 });

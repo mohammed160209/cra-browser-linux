@@ -37,6 +37,9 @@ export interface SidebarItem {
   savedURL?: string;
   children?: string[];
   tabData?: TabData;
+  folderSymbol?: string;
+  folderColor?: string;
+  isCollapsed?: boolean;
 }
 
 export interface SidebarDocument {
@@ -58,6 +61,8 @@ export interface Settings {
   new_tabs_at_top: boolean;
   folder_previews: boolean;
   block_cookie_banners: boolean;
+  top_bar_mode?: 'toolbar' | 'compact';
+  window_controls_position?: 'right' | 'left';
 }
 
 export interface ArchiveEntry {
@@ -252,6 +257,9 @@ export class Storage {
             title: it.title || it.tabData?.savedTitle || 'Tab',
             savedURL: it.tabData?.savedURL,
             children: it.children || [],
+            folderSymbol: it.folderSymbol,
+            folderColor: it.folderColor,
+            isCollapsed: it.isCollapsed,
             tabData: it.tabData
               ? {
                   url: it.tabData.url || 'https://duckduckgo.com',
@@ -316,6 +324,8 @@ export class Storage {
       new_tabs_at_top: false,
       folder_previews: true,
       block_cookie_banners: true,
+      top_bar_mode: 'toolbar',
+      window_controls_position: 'right',
     };
     if (fs.existsSync(file)) {
       try {

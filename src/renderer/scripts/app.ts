@@ -49,11 +49,7 @@ async function bootstrap() {
     sidebarCtrl.selectTab(initialTabId);
   }
 
-  // 3. Setup Window Controls
-  document.getElementById('btn-close-app')?.addEventListener('click', () => {
-    window.close();
-  });
-
+  // 3. Setup Window and Navigation Controls
   document.getElementById('btn-open-settings')?.addEventListener('click', () => {
     settingsCtrl.open('general');
   });

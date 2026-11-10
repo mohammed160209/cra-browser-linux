@@ -16,7 +16,17 @@ export class SettingsController {
     this.currentPaneTitle = document.getElementById('settings-current-pane-title')!;
     this.contentContainer = document.getElementById('settings-pane-content')!;
 
+    this.applyInitialSettings();
     this.setupListeners();
+  }
+
+  public applyInitialSettings(): void {
+    const isCompact = this.settings.top_bar_mode === 'compact';
+    document.body.classList.toggle('compact-topbar', isCompact);
+    document.body.classList.toggle('controls-left', this.settings.window_controls_position === 'left');
+    if (isCompact) {
+      window.craAPI.setTopBarVisible(false);
+    }
   }
 
   public open(pane = 'general'): void {
@@ -88,6 +98,9 @@ export class SettingsController {
       case 'general':
         this.renderGeneralPane();
         break;
+      case 'appearance':
+        this.renderAppearancePane();
+        break;
       case 'tabs':
         this.renderTabsPane();
         break;
@@ -114,7 +127,7 @@ export class SettingsController {
           <div class="mac-card-row">
             <div class="mac-row-label">
               <span>Default Browser</span>
-              <span class="mac-row-desc">Make Cra the system default web browser</span>
+              <span class="mac-row-desc">Make Cra the system default web browser on Linux</span>
             </div>
             <button class="mac-btn primary" id="btn-set-default-browser">Set as Default</button>
           </div>
@@ -122,7 +135,7 @@ export class SettingsController {
           <div class="mac-card-row">
             <div class="mac-row-label">
               <span>Search Engine</span>
-              <span class="mac-row-desc">Default engine used for omnibox queries</span>
+              <span class="mac-row-desc">Default engine used for omnibox and Command Bar queries</span>
             </div>
             <select class="mac-select" id="select-search-engine">
               <option value="DuckDuckGo" ${this.settings.search_engine === 'DuckDuckGo' ? 'selected' : ''}>DuckDuckGo</option>
@@ -132,16 +145,52 @@ export class SettingsController {
             </select>
           </div>
         </div>
-        <p class="settings-footnote">Cra works best when set as your primary web browser.</p>
+        <p class="settings-footnote">Cra is optimized for Linux desktops with seamless window management.</p>
       </div>
+    `;
 
+    document.getElementById('select-search-engine')?.addEventListener('change', (e) => {
+      this.settings.search_engine = (e.target as HTMLSelectElement).value;
+      this.persist();
+    });
+  }
+
+  private renderAppearancePane(): void {
+    this.contentContainer.innerHTML = `
       <div>
-        <h4 class="settings-section-header">Appearance</h4>
+        <h4 class="settings-section-header">Top Toolbar & Window Frame (Zen Browser Style)</h4>
         <div class="mac-card">
           <div class="mac-card-row">
             <div class="mac-row-label">
-              <span>Folder Previews</span>
-              <span class="mac-row-desc">Show tab count badges and tooltips on folder hover</span>
+              <span>Top Bar Mode</span>
+              <span class="mac-row-desc">Switch between standard top toolbar or Zen-style compact mode</span>
+            </div>
+            <select class="mac-select" id="select-topbar-mode">
+              <option value="toolbar" ${this.settings.top_bar_mode !== 'compact' ? 'selected' : ''}>Top Toolbar (Zen Standard)</option>
+              <option value="compact" ${this.settings.top_bar_mode === 'compact' ? 'selected' : ''}>Compact (Sidebar Only)</option>
+            </select>
+          </div>
+          <div class="mac-card-divider"></div>
+          <div class="mac-card-row">
+            <div class="mac-row-label">
+              <span>Window Controls Position</span>
+              <span class="mac-row-desc">Location of minimize, maximize, and close buttons</span>
+            </div>
+            <select class="mac-select" id="select-controls-position">
+              <option value="right" ${this.settings.window_controls_position !== 'left' ? 'selected' : ''}>Right (Linux Standard)</option>
+              <option value="left" ${this.settings.window_controls_position === 'left' ? 'selected' : ''}>Left</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="settings-section-header">Sidebar & Folders</h4>
+        <div class="mac-card">
+          <div class="mac-card-row">
+            <div class="mac-row-label">
+              <span>Folder Hover Previews</span>
+              <span class="mac-row-desc">Show tab list preview card when hovering collapsed folders</span>
             </div>
             <label class="mac-switch">
               <input type="checkbox" id="chk-folder-previews" ${this.settings.folder_previews ? 'checked' : ''}>
@@ -152,8 +201,18 @@ export class SettingsController {
       </div>
     `;
 
-    document.getElementById('select-search-engine')?.addEventListener('change', (e) => {
-      this.settings.search_engine = (e.target as HTMLSelectElement).value;
+    document.getElementById('select-topbar-mode')?.addEventListener('change', (e) => {
+      const mode = (e.target as HTMLSelectElement).value as 'toolbar' | 'compact';
+      this.settings.top_bar_mode = mode;
+      document.body.classList.toggle('compact-topbar', mode === 'compact');
+      window.craAPI.setTopBarVisible(mode !== 'compact');
+      this.persist();
+    });
+
+    document.getElementById('select-controls-position')?.addEventListener('change', (e) => {
+      const pos = (e.target as HTMLSelectElement).value as 'right' | 'left';
+      this.settings.window_controls_position = pos;
+      document.body.classList.toggle('controls-left', pos === 'left');
       this.persist();
     });
 
@@ -248,12 +307,12 @@ export class SettingsController {
   private renderPrivacyPane(): void {
     this.contentContainer.innerHTML = `
       <div>
-        <h4 class="settings-section-header">Content Blocking</h4>
+        <h4 class="settings-section-header">Content Filtering & Shield</h4>
         <div class="mac-card">
           <div class="mac-card-row">
             <div class="mac-row-label">
-              <span>Built-in Ad & Tracker Blocker</span>
-              <span class="mac-row-desc">Block ads, telemetry, and tracking networks</span>
+              <span>Ad & Tracker Blocking</span>
+              <span class="mac-row-desc">Block intrusive advertisements and third-party trackers</span>
             </div>
             <label class="mac-switch">
               <input type="checkbox" id="chk-adblock" ${this.settings.adblock_enabled ? 'checked' : ''}>
@@ -263,11 +322,11 @@ export class SettingsController {
           <div class="mac-card-divider"></div>
           <div class="mac-card-row">
             <div class="mac-row-label">
-              <span>Block Cookie Banners</span>
-              <span class="mac-row-desc">Automatically hide intrusive GDPR cookie prompts</span>
+              <span>Block Cookie Dialogs</span>
+              <span class="mac-row-desc">Automatically dismiss GDPR and cookie consent notices</span>
             </div>
             <label class="mac-switch">
-              <input type="checkbox" id="chk-cookie-banners" ${this.settings.block_cookie_banners ? 'checked' : ''}>
+              <input type="checkbox" id="chk-cookie-block" ${this.settings.block_cookie_banners ? 'checked' : ''}>
               <span class="mac-switch-slider"></span>
             </label>
           </div>
@@ -275,25 +334,12 @@ export class SettingsController {
           <div class="mac-card-row">
             <div class="mac-row-label">
               <span>HTTPS-Only Mode</span>
-              <span class="mac-row-desc">Automatically upgrade all web connections to HTTPS</span>
+              <span class="mac-row-desc">Upgrade all HTTP connections to encrypted HTTPS</span>
             </div>
             <label class="mac-switch">
               <input type="checkbox" id="chk-https-only" ${this.settings.https_only ? 'checked' : ''}>
               <span class="mac-switch-slider"></span>
             </label>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h4 class="settings-section-header">Browsing Data</h4>
-        <div class="mac-card">
-          <div class="mac-card-row">
-            <div class="mac-row-label">
-              <span>Clear Inactive Tab Archive</span>
-              <span class="mac-row-desc">Remove all stored archived tab sessions</span>
-            </div>
-            <button class="mac-btn" id="btn-clear-archive-data">Clear Archive</button>
           </div>
         </div>
       </div>
@@ -304,7 +350,7 @@ export class SettingsController {
       this.persist();
     });
 
-    document.getElementById('chk-cookie-banners')?.addEventListener('change', (e) => {
+    document.getElementById('chk-cookie-block')?.addEventListener('change', (e) => {
       this.settings.block_cookie_banners = (e.target as HTMLInputElement).checked;
       this.persist();
     });
@@ -313,26 +359,22 @@ export class SettingsController {
       this.settings.https_only = (e.target as HTMLInputElement).checked;
       this.persist();
     });
-
-    document.getElementById('btn-clear-archive-data')?.addEventListener('click', async () => {
-      await window.craAPI.clearArchive();
-      alert('Tab archive successfully cleared.');
-    });
   }
 
   private renderShortcutsPane(): void {
     const shortcuts = [
-      { action: 'New Tab / Command Bar', shortcut: 'Ctrl + T' },
-      { action: 'Edit URL / Search', shortcut: 'Ctrl + L' },
-      { action: 'Close Active Tab', shortcut: 'Ctrl + W' },
-      { action: 'Toggle Sidebar', shortcut: 'Ctrl + S' },
-      { action: 'Open Settings', shortcut: 'Ctrl + ,' },
-      { action: 'Clear Today Tabs', shortcut: 'Shift + Ctrl + K' },
-      { action: 'Reload Tab', shortcut: 'Ctrl + R / F5' },
-      { action: 'Back History', shortcut: 'Alt + Left' },
-      { action: 'Forward History', shortcut: 'Alt + Right' },
-      { action: 'Zoom In / Out / Reset', shortcut: 'Ctrl + / - / 0' },
-      { action: 'Toggle Developer Tools', shortcut: 'Ctrl + Shift + I' },
+      { key: 'Ctrl + T', desc: 'New tab / Open Command Bar' },
+      { key: 'Ctrl + L', desc: 'Focus URL bar / Command Bar' },
+      { key: 'Ctrl + W', desc: 'Close active tab' },
+      { key: 'Ctrl + S', desc: 'Toggle sidebar visibility' },
+      { key: 'Ctrl + ,', desc: 'Open Settings' },
+      { key: 'Ctrl + R / F5', desc: 'Reload current page' },
+      { key: 'Alt + Left', desc: 'Go back in history' },
+      { key: 'Alt + Right', desc: 'Go forward in history' },
+      { key: 'Shift + Ctrl + K', desc: 'Clear Today tabs' },
+      { key: 'Ctrl + + / -', desc: 'Zoom in / Zoom out' },
+      { key: 'Ctrl + 0', desc: 'Reset zoom level' },
+      { key: 'Ctrl + Shift + I', desc: 'Toggle Chromium DevTools' },
     ];
 
     this.contentContainer.innerHTML = `
@@ -341,12 +383,14 @@ export class SettingsController {
         <div class="mac-card">
           ${shortcuts
             .map(
-              (item, idx) => `
+              (s, i) => `
             <div class="mac-card-row">
-              <span class="mac-row-label">${item.action}</span>
-              <span class="keycap">${item.shortcut}</span>
+              <div class="mac-row-label">
+                <span>${s.desc}</span>
+              </div>
+              <span class="keycap">${s.key}</span>
             </div>
-            ${idx < shortcuts.length - 1 ? '<div class="mac-card-divider"></div>' : ''}
+            ${i < shortcuts.length - 1 ? '<div class="mac-card-divider"></div>' : ''}
           `
             )
             .join('')}
@@ -410,7 +454,10 @@ export class SettingsController {
           new_tabs_at_top: false,
           folder_previews: true,
           block_cookie_banners: true,
+          top_bar_mode: 'toolbar',
+          window_controls_position: 'right',
         };
+        this.applyInitialSettings();
         this.persist();
         this.renderPane();
       }

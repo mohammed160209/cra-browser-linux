@@ -34,6 +34,9 @@ export interface SidebarItem {
   savedURL?: string;
   children?: string[];
   tabData?: TabData;
+  folderSymbol?: string;
+  folderColor?: string;
+  isCollapsed?: boolean;
 }
 
 export interface SidebarDocument {
@@ -55,6 +58,8 @@ export interface Settings {
   new_tabs_at_top: boolean;
   folder_previews: boolean;
   block_cookie_banners: boolean;
+  top_bar_mode?: 'toolbar' | 'compact';
+  window_controls_position?: 'right' | 'left';
 }
 
 export type DropAction =

@@ -250,6 +250,8 @@ export class ViewManager {
   }
 
   private isContentVisible = true;
+  private splitRatio = 0.5;
+  private topBarVisible = true;
 
   public setContentVisible(visible: boolean): void {
     this.isContentVisible = visible;
@@ -282,6 +284,16 @@ export class ViewManager {
     }
   }
 
+  public setSplitRatio(ratio: number): void {
+    this.splitRatio = Math.max(0.15, Math.min(0.85, ratio));
+    this.updateLayoutBounds();
+  }
+
+  public setTopBarVisible(visible: boolean): void {
+    this.topBarVisible = visible;
+    this.updateLayoutBounds();
+  }
+
   public getActiveView(): TabView | null {
     if (this.activeTabId) {
       return this.views.get(this.activeTabId) || null;
@@ -294,11 +306,11 @@ export class ViewManager {
     const [winWidth, winHeight] = this.window.getSize();
     const xOffset = this.sidebarVisible ? this.sidebarWidth : 0;
     const inset = 6;
-    const topBarHeight = 44;
-    const contentWidth = Math.max(winWidth - xOffset - (inset * 2), 100);
-    const contentHeight = Math.max(winHeight - topBarHeight - (inset * 2), 100);
+    const topBarHeight = this.topBarVisible ? 44 : 0;
     const startX = xOffset + inset;
-    const startY = topBarHeight + inset;
+    const startY = this.topBarVisible ? topBarHeight + inset : inset;
+    const contentWidth = Math.max(winWidth - xOffset - (inset * 2), 100);
+    const contentHeight = Math.max(winHeight - startY - inset, 100);
 
     if (!this.activeTabId || !this.views.has(this.activeTabId)) return;
     const primary = this.views.get(this.activeTabId)!;
@@ -312,34 +324,36 @@ export class ViewManager {
       });
     } else {
       const secondary = this.views.get(this.secondaryTabId)!;
-      const splitGap = 4;
+      const splitGap = 6;
       if (this.splitOrientation === 'horizontal') {
-        const halfWidth = Math.floor((contentWidth - splitGap) / 2);
+        const primaryWidth = Math.floor((contentWidth - splitGap) * this.splitRatio);
+        const secondaryWidth = contentWidth - splitGap - primaryWidth;
         primary.view.setBounds({
           x: startX,
           y: startY,
-          width: halfWidth,
+          width: primaryWidth,
           height: contentHeight,
         });
         secondary.view.setBounds({
-          x: startX + halfWidth + splitGap,
+          x: startX + primaryWidth + splitGap,
           y: startY,
-          width: contentWidth - halfWidth - splitGap,
+          width: secondaryWidth,
           height: contentHeight,
         });
       } else {
-        const halfHeight = Math.floor((contentHeight - splitGap) / 2);
+        const primaryHeight = Math.floor((contentHeight - splitGap) * this.splitRatio);
+        const secondaryHeight = contentHeight - splitGap - primaryHeight;
         primary.view.setBounds({
           x: startX,
           y: startY,
           width: contentWidth,
-          height: halfHeight,
+          height: primaryHeight,
         });
         secondary.view.setBounds({
           x: startX,
-          y: startY + halfHeight + splitGap,
+          y: startY + primaryHeight + splitGap,
           width: contentWidth,
-          height: contentHeight - halfHeight - splitGap,
+          height: secondaryHeight,
         });
       }
     }

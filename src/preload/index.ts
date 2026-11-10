@@ -24,10 +24,17 @@ export interface CraAPI {
   toggleDevTools: () => Promise<void>;
   openExternal: (url: string) => Promise<void>;
   setContentVisible: (visible: boolean) => Promise<boolean>;
+  minimizeWindow: () => Promise<boolean>;
+  maximizeWindow: () => Promise<boolean>;
+  closeWindow: () => Promise<boolean>;
+  isMaximized: () => Promise<boolean>;
+  setSplitRatio: (ratio: number) => Promise<boolean>;
+  setTopBarVisible: (visible: boolean) => Promise<boolean>;
   onTabNavUpdated: (callback: (data: { tabId: string; url: string; canGoBack: boolean; canGoForward: boolean }) => void) => void;
   onTabTitleUpdated: (callback: (data: { tabId: string; title: string }) => void) => void;
   onTabFaviconUpdated: (callback: (data: { tabId: string; favicon: string }) => void) => void;
   onTabAudioUpdated: (callback: (data: { tabId: string; isPlaying: boolean }) => void) => void;
+  onWindowStateChanged: (callback: (isMaximized: boolean) => void) => void;
 }
 
 const api: CraAPI = {
@@ -54,10 +61,17 @@ const api: CraAPI = {
   toggleDevTools: () => ipcRenderer.invoke('toggle-devtools'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   setContentVisible: (visible) => ipcRenderer.invoke('set-content-visible', visible),
+  minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
+  maximizeWindow: () => ipcRenderer.invoke('window-maximize'),
+  closeWindow: () => ipcRenderer.invoke('window-close'),
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  setSplitRatio: (ratio) => ipcRenderer.invoke('set-split-ratio', ratio),
+  setTopBarVisible: (visible) => ipcRenderer.invoke('set-topbar-visible', visible),
   onTabNavUpdated: (cb) => ipcRenderer.on('tab-nav-updated', (_e, data) => cb(data)),
   onTabTitleUpdated: (cb) => ipcRenderer.on('tab-title-updated', (_e, data) => cb(data)),
   onTabFaviconUpdated: (cb) => ipcRenderer.on('tab-favicon-updated', (_e, data) => cb(data)),
   onTabAudioUpdated: (cb) => ipcRenderer.on('tab-audio-updated', (_e, data) => cb(data)),
+  onWindowStateChanged: (cb) => ipcRenderer.on('window-state-changed', (_e, max) => cb(max)),
 };
 
 contextBridge.exposeInMainWorld('craAPI', api);

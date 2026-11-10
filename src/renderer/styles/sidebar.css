@@ -18,38 +18,35 @@
   pointer-events: none;
 }
 
-/* Sidebar Header */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 34px;
+  height: 36px;
   margin-bottom: 8px;
   padding: 0 4px;
+  -webkit-app-region: drag;
 }
 
-.traffic-lights {
+.sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  color: var(--text-primary);
+  -webkit-app-region: no-drag;
 }
 
-.light-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  display: inline-block;
-  cursor: pointer;
-  transition: filter 0.15s ease;
+.brand-logo {
+  width: 18px;
+  height: 18px;
+  fill: var(--space-accent);
 }
 
-.light-dot.close { background: #ff5f57; }
-.light-dot.minimize { background: #febc2e; }
-.light-dot.maximize { background: #28c840; }
-
-.light-dot:hover {
-  filter: brightness(1.15);
+.space-title-display {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .sidebar-controls {
