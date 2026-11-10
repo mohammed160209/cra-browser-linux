@@ -1,88 +1,86 @@
-# Cra Browser (Linux Port)
+# Cra Browser (Linux 1:1 macOS Edition)
 
 <p align="center">
   <img src="data/app.crabrowser.Cra.svg" alt="Cra Logo" width="128" height="128">
 </p>
 
-A native Linux browser with an Arc-style sidebar instead of a tab strip, built with **GTK4**, **Libadwaita**, and **WebKitGTK 6.0**.
+A pixel-perfect native Linux clone of the macOS **Cra Browser** (open-source Arc browser replacement, [VictorKildahl/cra](https://github.com/VictorKildahl/cra)), engineered with an **HTML5/CSS3/TypeScript UI Shell** and Chromium engine via **Electron** (identical to the Zen Browser UI architecture).
 
-Free, open-source, and designed to bring Arc / [Cra](https://github.com/VictorKildahl/cra)'s workflow directly to Arch Linux, CachyOS, and the broader Linux desktop.
+Free, open-source, and designed to bring Arc's exact appearance, glassmorphism, native drag-and-drop mechanics, and multi-pane Settings app directly to Arch Linux, CachyOS, and the broader Linux desktop.
 
 ---
 
-## Features
+## 🌟 Key Parity Features
 
-| Arc / Cra Feature | Cra Linux | Details |
+| macOS Cra Feature | Linux Port | Details |
 |---|:---:|---|
-| **Spaces** | ✅ | Custom emoji, title, gradient presets (*Ink*, *Phantom*, *Moss*, *Ember*, *Gold*, *Brand*, *Parchment*, *Light Sun*, *Sunset*), and fast switching (`Ctrl+1..9`) |
-| **Pinned Tabs & Folders** | ✅ | Persistent tabs per space, remembers home `savedURL`, shows reset-to-home indicator when navigated elsewhere, custom rename, and collapsible nested folders |
-| **Today Tabs & Auto-Archive** | ✅ | Idle tab auto-archiving based on thresholds (12h, 24h, 7d, 30d, Never) into `archive.json`, and one-click "Clear Today" (`Shift+Ctrl+K`) |
-| **Favorites Grid** | ✅ | Quick-access site tiles with favicons/monograms, right-click context menu, and active site highlight |
-| **Command Bar (`Ctrl+T` / `Ctrl+L`)** | ✅ | Centered floating modal overlay with elevation shadow, URL/search detection with bang shortcuts (`!g`, `!ddg`, `!gh`, `!w`, `!aw`), live fuzzy tab switcher across all spaces, and Arc scope navigation (`Tab` enters Actions, `%` enters Tabs) |
-| **Split View (`Ctrl+Shift+=`)** | ✅ | Dual-pane split browsing (side-by-side or stacked), draggable divider handle, pane flipping, and independent navigation history |
-| **Little Window / Little Arc (`Ctrl+Alt+N`)** | ✅ | Floating popup window with navigation bar and "Open in Space" promotion menu |
-| **Built-in Content Blocker** | ✅ | 22,000+ domain tracker blocklist compiled into WebKit's native `WebKit.UserContentFilter` |
-| **Native Wayland & Libadwaita** | ✅ | Hardware acceleration, DMA-BUF, contrast-aware dynamic themes, and client-side window controls |
+| **Spaces & Glassmorphism** | ✅ | Dynamic gradient themes with frosted blur (`backdrop-filter: blur(36px)`), custom emoji, titles, and bottom dock space switcher |
+| **Favorites Grid** | ✅ | 2-column quick access tiles with favicons, active indicator outline, and drag-and-drop reordering |
+| **Pinned Tabs & Folders** | ✅ | Persistent tabs per space with home `savedURL`, reset-to-home mark (`↺`) when navigated away, and nested collapsible folders |
+| **Today Tabs & Auto-Archive** | ✅ | Idle tab auto-archiving based on thresholds (12h, 24h, 7d, 30d) into `archive.json`, and one-click "Clear Today" (`Shift+Ctrl+K`) |
+| **Native Drag & Drop** | ✅ | 1:1 implementation of `SidebarListDrop.swift`: live insertion lines, drag to pin, drag into folders, and drag onto tab center for instant split view |
+| **Command Bar (`Ctrl+T` / `Ctrl+L`)** | ✅ | Centered floating glassmorphic panel, scope chips (`Tab` for Actions, `%` for Tabs), omnibox search, and live tab switcher |
+| **macOS Settings App (`Ctrl+,`)** | ✅ | 1:1 replica of `SettingsWindowController.swift` (778×509px modal) with 204px left nav rail (General, Tabs, Privacy, Shortcuts, Performance, Advanced) and grouped card controls |
+| **Dual Split View** | ✅ | Side-by-side or stacked split browsing, divider handle, orientation toggle, and individual audio/navigation tracking |
+| **Content Blocker & Sleeping** | ✅ | Built-in 22,500+ domain ad/tracker blocker and memory-pressure tab sleep background service |
 
 ---
 
-## Keyboard Shortcuts
+## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
 |---|---|
-| <kbd>Ctrl</kbd> + <kbd>T</kbd> / <kbd>Ctrl</kbd> + <kbd>L</kbd> | Open Command Bar (Search, navigate, switch tab, or run action) |
-| <kbd>Tab</kbd> *(in empty Command Bar)* | Enter **Actions** scope |
-| <kbd>%</kbd> *(in Command Bar)* | Enter **Tabs** search scope |
-| <kbd>Ctrl</kbd> + <kbd>W</kbd> | Close current tab (or focused split pane) |
-| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Show or hide the sidebar (floating restore button available) |
-| <kbd>Ctrl</kbd> + <kbd>D</kbd> | Pin or unpin current tab |
-| <kbd>Ctrl</kbd> + <kbd>1</kbd>…<kbd>9</kbd> | Switch to Space 1 through 9 |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>=</kbd> | Toggle Split View |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>-</kbd> | Close secondary Split View pane |
-| <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>N</kbd> | New Little Window ("Little Arc") |
+| <kbd>Ctrl</kbd> + <kbd>T</kbd> | Open Command Bar (New Tab) |
+| <kbd>Ctrl</kbd> + <kbd>L</kbd> | Open Location / Edit URL |
+| <kbd>Tab</kbd> *(in Command Bar)* | Toggle **Actions** scope |
+| <kbd>Ctrl</kbd> + <kbd>W</kbd> | Close active tab |
+| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Toggle Sidebar collapse / expand |
+| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Open macOS Settings App |
 | <kbd>Shift</kbd> + <kbd>Ctrl</kbd> + <kbd>K</kbd> | Clear Today tabs into archive |
-| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Open Preferences dialog |
-| <kbd>Ctrl</kbd> + <kbd>R</kbd> / <kbd>F5</kbd> | Reload page |
-| <kbd>Alt</kbd> + <kbd>Left</kbd> / <kbd>Alt</kbd> + <kbd>Right</kbd> | Go Back / Forward |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd> | Web Inspector / Developer Tools |
+| <kbd>Ctrl</kbd> + <kbd>R</kbd> / <kbd>F5</kbd> | Reload current page |
+| <kbd>Alt</kbd> + <kbd>Left</kbd> / <kbd>Alt</kbd> + <kbd>Right</kbd> | History Back / Forward |
+| <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | Zoom In / Out / Reset |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd> | Developer Tools |
 
 ---
 
-## Installation & Running
+## 🚀 Quickstart & Installation (Arch Linux / CachyOS)
 
-### Running Directly from Source
+### 1. One-Click Quick Installer
 ```bash
-# Ensure dependencies are installed (on CachyOS / Arch Linux):
-sudo pacman -S gtk4 libadwaita webkitgtk-6.0 python-gobject
+cd ~/cra-browser-linux
 
-# Launch Cra Browser
-./bin/cra-browser
+# Run the installer (installs dependencies, builds UI shell, and sets up launcher)
+./install.sh
+
+# Launch Cra Browser!
+cra-browser
 ```
 
-### Installing via PKGBUILD (Arch Linux / CachyOS)
+### 2. Running Directly from Git
 ```bash
-makepkg -si
+# Build TypeScript and assets
+npm install
+npm run build
+
+# Start the browser
+npm start
 ```
 
-### Cloud / Codespaces
-Open this repository in **GitHub Codespaces** or any devcontainer environment; the `.devcontainer` configuration automatically installs dependencies and sets up virtual display forwarding.
-
-### Running Test Suite
+### 3. Running Automated Tests
 ```bash
-pytest
+npm test
 ```
 
 ---
 
-## Architecture & Configuration
-Configuration and session data follow Arc's schema and are saved in `~/.config/cra-browser/`:
-* `sidebar.json`: Spaces, containers (Favorites, Pinned, Today), nested folders, and tabs.
-* `settings.json`: Default search engine, ad blocker, auto-archive threshold, HTTPS-only mode, and hardware acceleration.
-* `archive.json`: Historical record of auto-archived and manually cleared tabs.
-
-Reference documentation reverse-engineered from Arc and Cra is located in [`docs/arc-reverse-engineering.md`](docs/arc-reverse-engineering.md) and [`docs/arc-parity.md`](docs/arc-parity.md).
+## 📂 Configuration & Storage
+All settings and sessions match Arc's schema and are stored in `~/.config/cra-browser/`:
+* `sidebar.json`: Spaces, containers (Favorites, Pinned, Today), folders, and tabs.
+* `settings.json`: Search engine, ad blocker, auto-archive threshold, tab sleep timer, and hardware acceleration.
+* `archive.json`: Historical record of auto-archived tabs.
 
 ---
 
-## License
+## 📜 License
 MIT License. Inspired by [VictorKildahl/cra](https://github.com/VictorKildahl/cra) and Arc.

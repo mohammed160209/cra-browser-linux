@@ -1,0 +1,299 @@
+/* macOS Dia/Cra Settings Modal (778px x 509px) */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.settings-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-window {
+  width: 778px;
+  height: 509px;
+  background: #1c1a24;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  display: flex;
+  overflow: hidden;
+  transform: scale(0.96);
+  transition: transform 0.22s var(--ease-spring);
+}
+
+.settings-overlay.open .settings-window {
+  transform: scale(1);
+}
+
+/* 204px Left Sidebar */
+.settings-sidebar {
+  width: 204px;
+  background: rgba(0, 0, 0, 0.22);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding: 14px 10px;
+}
+
+.settings-window-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.settings-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.settings-nav-item:hover {
+  background: var(--hover-fill);
+  color: var(--text-primary);
+}
+
+.settings-nav-item.active {
+  background: var(--selected-fill);
+  color: #fff;
+  font-weight: 500;
+}
+
+.settings-nav-glyph {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-nav-glyph svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Right Content Area */
+.settings-content-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.015);
+  overflow: hidden;
+}
+
+.settings-toolbar {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.settings-nav-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.settings-pill-btn {
+  width: 26px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+}
+
+.settings-pill-btn:disabled {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.settings-pill-btn:not(:disabled):hover {
+  background: var(--hover-fill);
+  color: var(--text-primary);
+}
+
+.settings-pane-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.settings-scroll-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Section Header & Group Cards */
+.settings-section-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 7px;
+  margin-left: 2px;
+}
+
+.mac-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.mac-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 10px 14px;
+  gap: 16px;
+}
+
+.mac-card-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 14px;
+}
+
+.mac-row-label {
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mac-row-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.settings-footnote {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  margin-left: 4px;
+  line-height: 1.4;
+}
+
+/* Controls */
+.mac-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  transition: background 0.15s ease;
+}
+
+.mac-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mac-btn.primary {
+  background: var(--space-accent);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.mac-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+/* iOS / macOS Toggle Switch */
+.mac-switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+}
+
+.mac-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.mac-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 22px;
+  transition: background 0.25s ease;
+}
+
+.mac-switch-slider::before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s var(--ease-spring);
+}
+
+.mac-switch input:checked + .mac-switch-slider {
+  background: var(--space-accent);
+}
+
+.mac-switch input:checked + .mac-switch-slider::before {
+  transform: translateX(16px);
+}
+
+/* Select Picker */
+.mac-select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  padding: 5px 24px 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 16px;
+}

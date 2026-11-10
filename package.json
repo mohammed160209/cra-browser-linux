@@ -1,0 +1,16 @@
+{
+  "name": "cra-browser-linux",
+  "version": "1.0.0",
+  "description": "Native Linux port of Cra Browser with 1:1 macOS Arc Parity",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node build.js",
+    "start": "electron . --no-sandbox",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

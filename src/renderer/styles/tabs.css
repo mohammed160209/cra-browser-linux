@@ -1,0 +1,195 @@
+/* Tabs and Folders */
+.tab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.12s ease, transform 0.1s ease;
+}
+
+.tab-row:hover {
+  background: var(--hover-fill);
+}
+
+.tab-row.active {
+  background: var(--selected-fill);
+  font-weight: 500;
+}
+
+.tab-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.tab-title {
+  flex: 1;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.tab-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.tab-audio-badge {
+  color: var(--space-accent);
+  display: inline-flex;
+  align-items: center;
+}
+
+.tab-audio-badge svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.tab-close-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.tab-row:hover .tab-close-btn {
+  opacity: 1;
+}
+
+.tab-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.tab-close-btn svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+/* Home / Revert icon for pinned tabs navigated away */
+.tab-home-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.tab-row:hover .tab-home-btn {
+  opacity: 1;
+}
+
+.tab-home-btn:hover {
+  color: #fff;
+}
+
+.tab-home-btn svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+/* Folders */
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: background 0.12s ease;
+}
+
+.folder-row:hover {
+  background: var(--hover-fill);
+  color: var(--text-primary);
+}
+
+.folder-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.18s var(--ease-spring);
+}
+
+.folder-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.folder-title {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.folder-children {
+  margin-left: 14px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Drag and Drop Styling */
+.tab-row.dragging {
+  opacity: 0.35;
+  transform: scale(0.98);
+}
+
+.drop-indicator-line {
+  height: 2px;
+  background: var(--space-accent);
+  border-radius: 1px;
+  margin: 1px 0;
+  box-shadow: 0 0 8px var(--space-accent);
+  pointer-events: none;
+}
+
+.tab-row.drag-over-split-left {
+  box-shadow: inset 3px 0 0 var(--space-accent), 0 0 10px rgba(139, 104, 252, 0.35);
+  background: rgba(139, 104, 252, 0.18);
+}
+
+.tab-row.drag-over-split-right {
+  box-shadow: inset -3px 0 0 var(--space-accent), 0 0 10px rgba(139, 104, 252, 0.35);
+  background: rgba(139, 104, 252, 0.18);
+}
+
+.folder-row.drag-over-folder {
+  background: rgba(139, 104, 252, 0.22);
+  outline: 1px dashed var(--space-accent);
+}

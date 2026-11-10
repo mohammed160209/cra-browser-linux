@@ -18,3 +18,5 @@ dist/
 # Ignore macOS upstream clone folder
 src-cra/
 uv.lock
+node_modules/
+pnpm-lock.yaml

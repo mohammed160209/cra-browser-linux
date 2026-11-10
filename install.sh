@@ -10,11 +10,31 @@ fi
 echo "==> Cleaning previous installation..."
 $SUDO rm -f /usr/bin/cra-browser
 $SUDO rm -rf /usr/lib/python3*/site-packages/cra_browser*
+$SUDO rm -rf /usr/lib/cra-browser
 
-echo "==> Installing Cra Browser for Arch Linux / CachyOS..."
-$SUDO python setup.py install --root=/ --optimize=1
+echo "==> Building Cra Browser (1:1 macOS Arc Edition)..."
+if [ ! -d "node_modules" ]; then
+    npm install
+fi
+node build.js
 
-echo "==> Updating desktop and icon caches..."
+echo "==> Installing Cra Browser to /usr/lib/cra-browser..."
+$SUDO mkdir -p /usr/lib/cra-browser /usr/bin /usr/share/applications /usr/share/icons/hicolor/scalable/apps /usr/share/metainfo
+
+$SUDO cp -r package.json dist node_modules /usr/lib/cra-browser/
+$SUDO install -Dm755 bin/cra-browser /usr/bin/cra-browser
+
+echo "==> Installing desktop entry and icons..."
+if [ -f "data/app.crabrowser.Cra.desktop" ]; then
+    $SUDO cp data/app.crabrowser.Cra.desktop /usr/share/applications/
+fi
+if [ -f "data/app.crabrowser.Cra.metainfo.xml" ]; then
+    $SUDO cp data/app.crabrowser.Cra.metainfo.xml /usr/share/metainfo/
+fi
+if [ -f "data/app.crabrowser.Cra.svg" ]; then
+    $SUDO cp data/app.crabrowser.Cra.svg /usr/share/icons/hicolor/scalable/apps/
+fi
+
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     $SUDO gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
 fi
@@ -24,6 +44,6 @@ fi
 
 echo ""
 echo "=========================================================="
-echo " Cra Browser installed successfully!"
+echo " Cra Browser (macOS Arc 1:1 Edition) installed successfully!"
 echo " Launch from your application menu or run: cra-browser"
 echo "=========================================================="

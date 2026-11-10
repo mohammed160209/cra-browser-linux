@@ -1,20 +1,14 @@
 # Maintainer: icesaviour <https://github.com/icesaviour02-droid>
 # Contributor: mohammed160209 <https://github.com/mohammed160209>
 pkgname=cra-browser-linux-git
-pkgver=0.1.0
+pkgver=1.0.0
 pkgrel=1
-pkgdesc="Native GTK4 and Libadwaita port of the open-source Cra/Arc browser for Arch Linux and CachyOS"
+pkgdesc="Native 1:1 macOS Arc/Cra port for Arch Linux and CachyOS"
 arch=('x86_64' 'aarch64')
 url="https://github.com/mohammed160209/cra-browser-linux"
 license=('MIT')
-depends=(
-    'gtk4'
-    'libadwaita'
-    'webkitgtk-6.0'
-    'python'
-    'python-gobject'
-)
-makedepends=('git' 'python-setuptools' 'python-wheel' 'python-build' 'python-installer')
+depends=('electron')
+makedepends=('git' 'nodejs' 'npm')
 provides=('cra-browser')
 conflicts=('cra-browser')
 source=("git+https://github.com/mohammed160209/cra-browser-linux.git")
@@ -22,18 +16,20 @@ sha256sums=('SKIP')
 
 pkgver() {
     cd "${srcdir}/${pkgname%-git}"
-    printf "0.1.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+    printf "1.0.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {
     cd "${srcdir}/${pkgname%-git}"
-    python setup.py build
+    npm install
+    node build.js
 }
 
 package() {
     cd "${srcdir}/${pkgname%-git}"
 
-    python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+    install -dm755 "${pkgdir}/usr/lib/cra-browser"
+    cp -r package.json dist node_modules "${pkgdir}/usr/lib/cra-browser/"
 
     # Install executable launcher
     install -Dm755 bin/cra-browser "${pkgdir}/usr/bin/cra-browser"

@@ -1,15 +1,35 @@
-#!/usr/bin/env python3
-"""Launcher script for Cra Browser Linux."""
+#!/usr/bin/env bash
+# Launcher script for Cra Browser Linux (macOS Arc 1:1 Edition)
+set -e
 
-import os
-import sys
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Ensure local cra_browser package is importable when running from git checkout
-repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if os.path.isdir(os.path.join(repo_root, "cra_browser")) and repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
+# 1. Determine Application Directory
+if [ -f "$REPO_ROOT/dist/main.js" ]; then
+    APP_DIR="$REPO_ROOT"
+elif [ -d "/usr/lib/cra-browser" ]; then
+    APP_DIR="/usr/lib/cra-browser"
+elif [ -d "$HOME/.local/share/cra-browser" ]; then
+    APP_DIR="$HOME/.local/share/cra-browser"
+else
+    APP_DIR="$REPO_ROOT"
+fi
 
-from cra_browser.app import main
+# 2. Determine Electron Binary
+ELECTRON_CMD=""
+if command -v electron >/dev/null 2>&1; then
+    ELECTRON_CMD="electron"
+elif [ -x "$APP_DIR/node_modules/.bin/electron" ]; then
+    ELECTRON_CMD="$APP_DIR/node_modules/.bin/electron"
+elif [ -x "$REPO_ROOT/node_modules/.bin/electron" ]; then
+    ELECTRON_CMD="$REPO_ROOT/node_modules/.bin/electron"
+elif command -v npx >/dev/null 2>&1; then
+    ELECTRON_CMD="npx electron"
+else
+    echo "Error: Electron is not installed. Please install electron via pacman ('sudo pacman -S electron') or npm." >&2
+    exit 1
+fi
 
-if __name__ == "__main__":
-    sys.exit(main())
+# 3. Launch Cra Browser
+exec $ELECTRON_CMD "$APP_DIR" "$@"
