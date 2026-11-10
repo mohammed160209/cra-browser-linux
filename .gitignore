@@ -17,3 +17,4 @@ dist/
 
 # Ignore macOS upstream clone folder
 src-cra/
+uv.lock

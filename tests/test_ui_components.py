@@ -164,8 +164,26 @@ def test_cra_window_initialization_and_actions():
     window._toggle_split_view()
     assert not window.split_view.is_split
 
+    # Tab cycling
+    initial_tab = window.active_tab_id
+    window.doc.add_tab(window.active_space_id, "https://example.org")
+    window._cycle_tab(forward=True)
+    assert window.active_tab_id != initial_tab
+    window._cycle_tab(forward=False)
+    assert window.active_tab_id == initial_tab
+
     # Preferences settings dialog open (must not raise TypeError on present)
     window.on_open_settings()
+
+
+def test_clean_url_trackers():
+    from cra_browser.ui.window import _clean_url_trackers
+    dirty = "https://example.com/product?utm_source=twitter&utm_medium=social&fbclid=IwAR123&keep=1"
+    clean = _clean_url_trackers(dirty)
+    assert clean == "https://example.com/product?keep=1"
+
+    clean_plain = _clean_url_trackers("https://archlinux.org/packages")
+    assert clean_plain == "https://archlinux.org/packages"
 
 
 def test_browser_view_initialization():

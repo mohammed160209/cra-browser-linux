@@ -25,6 +25,26 @@ from .space_editor import SpaceEditorDialog
 from .preferences_dialog import PreferencesDialog
 
 
+def _clean_url_trackers(url: str) -> str:
+    """Strip tracking query parameters like utm_*, fbclid, gclid from URL (Arc CleanURL)."""
+    if not url:
+        return ""
+    try:
+        from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
+        parsed = urlparse(url)
+        params = parse_qsl(parsed.query, keep_blank_values=True)
+        strip_prefixes = ("utm_",)
+        strip_exact = {"fbclid", "gclid", "msclkid", "mc_eid", "igshid", "_hsenc", "_hsmi"}
+        filtered = [
+            (k, v) for k, v in params
+            if not any(k.lower().startswith(p) for p in strip_prefixes) and k.lower() not in strip_exact
+        ]
+        new_query = urlencode(filtered)
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+    except Exception:
+        return url
+
+
 class CraWindow(Adw.ApplicationWindow):
     """Primary application window for Cra Browser on Linux."""
 
@@ -605,10 +625,74 @@ class CraWindow(Adw.ApplicationWindow):
                                 })
         return res
 
+    def _cycle_tab(self, forward: bool = True):
+        space = self.doc.get_space(self.active_space_id)
+        if not space:
+            return
+        tabs = []
+        for c_id in (space.favorites_container_id, space.pinned_container_id, space.today_container_id):
+            for it in self.doc.get_children(c_id):
+                if it.tab_data:
+                    tabs.append(it)
+                elif it.item_type == "folder":
+                    for cid in it.children:
+                        cit = self.doc.get_item(cid)
+                        if cit and cit.tab_data:
+                            tabs.append(cit)
+        if not tabs:
+            return
+        current_idx = -1
+        for idx, t in enumerate(tabs):
+            if t.id == self.active_tab_id:
+                current_idx = idx
+                break
+        if current_idx == -1:
+            target = tabs[0]
+        else:
+            new_idx = (current_idx + 1) % len(tabs) if forward else (current_idx - 1) % len(tabs)
+            target = tabs[new_idx]
+        self.on_tab_selected(target)
+
     def _on_key_pressed(self, controller, keyval, keycode, state):
         ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK)
         alt = bool(state & Gdk.ModifierType.ALT_MASK)
         shift = bool(state & Gdk.ModifierType.SHIFT_MASK)
+
+        # Ctrl+Tab / Ctrl+Shift+Tab: Cycle Tabs
+        if ctrl and not alt and keyval in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab):
+            self._cycle_tab(forward=not shift)
+            return True
+
+        # Ctrl+Shift+C: Copy URL without trackers (Arc CleanURL)
+        if ctrl and shift and keyval in (Gdk.KEY_c, Gdk.KEY_C):
+            view = self._get_active_view()
+            if view:
+                url_clean = _clean_url_trackers(view.current_url)
+                display = Gdk.Display.get_default()
+                if display:
+                    display.get_clipboard().set(url_clean)
+            return True
+
+        # Ctrl+0: Reset zoom
+        if ctrl and not alt and not shift and keyval in (Gdk.KEY_0, Gdk.KEY_KP_0):
+            view = self._get_active_view()
+            if view:
+                view.zoom_reset()
+            return True
+
+        # Ctrl+=: Zoom in
+        if ctrl and not alt and not shift and keyval == Gdk.KEY_equal:
+            view = self._get_active_view()
+            if view:
+                view.zoom_in()
+            return True
+
+        # Ctrl+-: Zoom out
+        if ctrl and not alt and not shift and keyval in (Gdk.KEY_minus, Gdk.KEY_KP_Subtract):
+            view = self._get_active_view()
+            if view:
+                view.zoom_out()
+            return True
 
         # Alt+Left: Go Back
         if alt and not ctrl and keyval == Gdk.KEY_Left:
